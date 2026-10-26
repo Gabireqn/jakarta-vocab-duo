@@ -76,3 +76,7 @@ revoke all on function public.create_couple() from public, anon;
 revoke all on function public.join_couple(text) from public, anon;
 grant execute on function public.create_couple() to authenticated;
 grant execute on function public.join_couple(text) to authenticated;
+
+-- Les membres ne peuvent modifier que la progression, jamais le code de l'espace
+revoke update on public.couples from authenticated, anon;
+grant update (state, updated_at) on public.couples to authenticated;

@@ -173,6 +173,28 @@ input[type=email],input[type=password]{font:inherit;color:var(--ink);background:
 .account{display:flex;flex-direction:column;gap:6px;font-size:.88rem;color:var(--muted);border-top:1px solid var(--line);padding-top:14px}
 .account b{color:var(--ink);letter-spacing:.08em}
 .loading{text-align:center;color:var(--muted);padding:40px 0}
+.pmeta{font-size:.82rem;color:var(--muted)}
+.dots2{display:flex;gap:3px;margin-top:2px}
+.dots2 i{width:7px;height:7px;border-radius:50%;background:var(--line)}
+.dots2 i.a.on{background:var(--p1)} .dots2 i.b.on{background:var(--p2)}
+.lvs{grid-row:1/3;grid-column:2;align-self:center;display:flex;flex-direction:column;gap:4px}
+.lv i.on.b{background:var(--p2)}
+.chart{display:flex;align-items:flex-end;gap:10px;height:120px;padding-top:8px;border-bottom:1px solid var(--line)}
+.wkcol{flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;min-width:0;height:100%;justify-content:flex-end}
+.bars{display:flex;align-items:flex-end;gap:3px;height:100%;width:100%;justify-content:center}
+.bars i{width:40%;max-width:18px;border-radius:4px 4px 0 0;background:var(--p1);min-height:2px}
+.bars i.b{background:var(--p2)}
+.wklab{display:flex;gap:10px}
+.wklab span{flex:1;text-align:center;font-size:.72rem;color:var(--muted);font-variant-numeric:tabular-nums}
+.legend{display:flex;gap:14px;font-size:.82rem;color:var(--muted)}
+.legend i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:5px;vertical-align:-1px}
+.mastery{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.mbox{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:12px;display:flex;flex-direction:column;gap:6px}
+.mbar{height:8px;border-radius:4px;background:var(--sunk);overflow:hidden;display:flex}
+.mbar i{display:block;height:100%}
+.hard{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px}
+.hard li{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:8px 12px;display:flex;justify-content:space-between;gap:10px}
+.hard small{color:var(--muted);white-space:nowrap}
 </style>
 </head>
 <body>
@@ -326,11 +348,11 @@ const STORIES=[
 const ACTS={
  1:{id:"decouverte",n:"Découverte",d:"Devinez d'abord, puis découvrez les 12 expressions de la semaine et testez-vous tout de suite.",plan:[["Révision",3],["Prétest",3],["Découverte",6],["Rappel",3]]},
  2:{id:"taboo",n:"Taboo",d:"Faites deviner les expressions en anglais, sans les dire ni les traduire. Chrono de 90 secondes.",plan:[["Révision",3],["Taboo, 4 manches",8],["Résultats",1]]},
- 3:{id:"trous",n:"Phrases à trous",d:"Retrouvez l'expression qui complète chaque phrase, puis parlez de votre future vie à Jakarta.",plan:[["Révision",3],["Phrases à trous",6],["À l'oral",4],["Résultats",1]]},
+ 3:{id:"trous",n:"Phrases à trous",d:"Retrouvez l'expression qui complète chaque phrase, écrivez-en quelques-unes de mémoire, puis parlez de votre future vie à Jakarta.",plan:[["Révision",3],["Phrases à trous",4],["À l'écrit",4],["À l'oral",3],["Résultats",1]]},
  4:{id:"role",n:"Jeux de rôle",d:"Deux scènes de la vraie vie. Chacun a trois expressions à placer naturellement.",plan:[["Révision",3],["Scène 1",5],["Scène 2",5],["Résultats",1]]},
  5:{id:"duel",n:"Duel express",d:"Traduisez un maximum d'expressions en 45 secondes. Deux manches chacun, le meilleur total gagne.",plan:[["Révision",3],["Duel, 4 manches",5],["Erreurs à revoir",2],["Résultats",1]]},
  6:{id:"histoire",n:"Histoire à deux",d:"Inventez une histoire à tour de rôle. Chaque phrase doit contenir le mot pioché.",plan:[["Révision",3],["Histoire, 10 tours",10],["Résultats",1]]},
- 7:{id:"bilan",n:"Grand bilan",d:"Toutes les révisions en retard, un quiz qui mélange les semaines, et le récap de la semaine.",plan:[["Grande révision",6],["Quiz mélangé",6],["Récap de la semaine",2]]}
+ 7:{id:"bilan",n:"Grand bilan",d:"Toutes les révisions en retard, un quiz qui mélange les semaines, quelques expressions à écrire de mémoire et le récap de la semaine.",plan:[["Grande révision",5],["Quiz mélangé",4],["À l'écrit",3],["Récap de la semaine",2]]}
 };
 const DAYS=["","Lundi","Mardi","Mercredi","Jeudi","Vendredi","Samedi","Dimanche"];
 const HARI=["","Senin","Selasa","Rabu","Kamis","Jumat","Sabtu","Minggu"];
@@ -349,27 +371,35 @@ function longDate(s){const d=parse(s);return DAYS[dow(s)]+" "+d.getDate()+" "+MO
 
 /* ---------- state & sync ---------- */
 const CFG=window.JVD_CONFIG||{};
-const sb=(CFG.supabaseUrl&&CFG.supabaseKey&&window.supabase&&window.supabase.createClient)?window.supabase.createClient(CFG.supabaseUrl,CFG.supabaseKey):null;
+const libMissing=!!(CFG.supabaseUrl&&CFG.supabaseKey&&!(window.supabase&&window.supabase.createClient));
+const sb=(CFG.supabaseUrl&&CFG.supabaseKey&&!libMissing)?window.supabase.createClient(CFG.supabaseUrl,CFG.supabaseKey):null;
 let KEY="jvd-local-v2";
-function blankState(){return {names:["Gabriel","Margot"],namesU:0,members:{},cards:{},log:{}};}
+function blankState(){return {names:["Gabriel","Margot"],namesU:0,members:{},theme:{v:null,u:0},cards:{0:{},1:{}},log:{}};}
+function cleanCard(x){return {box:Math.min(5,Math.max(1,+x.box||1)),due:String(x.due||""),u:+x.u||0};}
+/* cards are per player: {0:{wordKey:card}, 1:{...}}. Older flat data belonged to the first player. */
+function normCards(c){const out={0:{},1:{}};if(!c||typeof c!=="object")return out;
+  if(Object.keys(c).some(k=>/^\d+-\d+$/.test(k))){for(const k in c)if(WMAP[k]&&c[k])out[0][k]=cleanCard(c[k]);return out;}
+  [0,1].forEach(p=>{const d=c[p];if(d&&typeof d==="object")for(const k in d)if(WMAP[k]&&d[k])out[p][k]=cleanCard(d[k]);});return out;}
 function norm(o){o=o||{};const b=blankState();const log={};const src=o.log&&typeof o.log==="object"?o.log:{};
-  for(const d in src){if(Array.isArray(src[d]))log[d]=src[d].filter(e=>e&&typeof e==="object"&&e.id).map(e=>({id:String(e.id),a:String(e.a),s:Array.isArray(e.s)?[+e.s[0]||0,+e.s[1]||0]:[0,0]}));}
+  for(const d in src){if(Array.isArray(src[d]))log[d]=src[d].filter(e=>e&&typeof e==="object"&&e.id).map(e=>{const sc=Array.isArray(e.s)?[+e.s[0]||0,+e.s[1]||0]:[0,0];
+    let pp=Array.isArray(e.p)?e.p.map(Number).filter(v=>v===0||v===1):[0,1].filter(i=>sc[i]>0);if(!pp.length)pp=[0,1];
+    return {id:String(e.id),a:String(e.a),s:sc,p:pp,m:Array.isArray(e.m)?e.m.filter(k=>WMAP[k]).slice(0,40):[]};});}
   const members={};if(o.members&&typeof o.members==="object")for(const k in o.members){const v=+o.members[k];if(v===0||v===1)members[k]=v;}
-  return {names:Array.isArray(o.names)&&o.names.length===2?o.names.map(String):b.names,namesU:+o.namesU||0,members,cards:o.cards&&typeof o.cards==="object"?JSON.parse(JSON.stringify(o.cards)):{},log};}
+  const tv=o.theme&&o.theme.v;const theme={v:(Number.isInteger(tv)&&tv>=0&&tv<WEEKS.length)?tv:null,u:+(o.theme&&o.theme.u)||0};
+  return {names:Array.isArray(o.names)&&o.names.length===2?o.names.map(String):b.names,namesU:+o.namesU||0,members,theme,cards:normCards(o.cards),log};}
 /* merge two states (a = server, b = this device): newest name edit wins, each card keeps its most recent review, sessions are unioned and the server copy of a session wins */
 function merge(a,b){const o=blankState();
   o.names=(b.namesU||0)>=(a.namesU||0)?b.names:a.names;o.members=Object.assign({},b.members,a.members);o.namesU=Math.max(a.namesU||0,b.namesU||0);
-  o.cards=Object.assign({},a.cards);for(const k in b.cards){const x=a.cards[k],y=b.cards[k];if(!x||(+y.u||0)>(+x.u||0))o.cards[k]=y;}
+  o.theme=(b.theme.u||0)>=(a.theme.u||0)?b.theme:a.theme;
+  [0,1].forEach(p=>{const A=a.cards[p]||{},B=b.cards[p]||{};o.cards[p]=Object.assign({},A);for(const k in B){const x=A[k],y=B[k];if(!x||(+y.u||0)>(+x.u||0))o.cards[p][k]=y;}});
   new Set(Object.keys(a.log).concat(Object.keys(b.log))).forEach(d=>{const m={};(b.log[d]||[]).concat(a.log[d]||[]).forEach(e=>m[e.id]=e);o.log[d]=Object.values(m);});
   return o;}
 let S=blankState();
 function loadCache(){try{const raw=localStorage.getItem(KEY);S=raw?norm(JSON.parse(raw)):blankState();}catch(e){S=blankState();}}
 function cache(){try{localStorage.setItem(KEY,JSON.stringify(S));}catch(e){}}
 loadCache();
-let themeOverride=null;
-try{const t=localStorage.getItem("jvd-theme");if(t!==null&&t!=="")themeOverride=+t;}catch(e){}
 let user=null,couple=null,syncOk=true,saveChain=Promise.resolve();
-function syncLabel(){if(!sb)return "Progression enregistrée sur cet appareil";return syncOk?"Progression synchronisée":"Hors ligne : enregistré sur cet appareil, synchro dès le retour du réseau";}
+function syncLabel(){if(libMissing)return "Hors ligne : enregistré sur cet appareil, synchro au prochain lancement avec réseau";if(!sb)return "Progression enregistrée sur cet appareil";return syncOk?"Progression synchronisée":"Hors ligne : enregistré sur cet appareil, synchro dès le retour du réseau";}
 function showSync(){const el=document.getElementById("sync");if(el)el.textContent=syncLabel();}
 async function fetchRemote(){const {data,error}=await sb.from("couples").select("state").eq("id",couple.id).single();if(error)throw error;return norm(data.state);}
 function save(){
@@ -393,7 +423,16 @@ async function pull(){
   showSync();
   return JSON.stringify(S)!==before;
 }
-function mySlot(){return (sb&&user&&S.members[user.id]!==undefined)?S.members[user.id]:null;}
+function myUid(){return user?user.id:(couple&&couple.uid)||null;}
+function mySlot(){const u=myUid();return (u&&S.members[u]!==undefined)?S.members[u]:null;}
+function deck(p){return S.cards[p]||(S.cards[p]={});}
+function seenWords(p){return Object.keys(deck(p)).map(k=>WMAP[k]).filter(Boolean);}
+function dueFor(p,t){return Object.entries(deck(p)).filter(([k,c])=>c.due<=t&&WMAP[k]).sort((a,b)=>a[1].due.localeCompare(b[1].due)||a[1].box-b[1].box);}
+function playedOn(d,p){return dayLog(d).some(e=>e.p.includes(p));}
+function streakFor(p){let d=today();if(!playedOn(d,p))d=addDays(d,-1);let n=0;while(playedOn(d,p)){n++;d=addDays(d,-1);}return n;}
+function actName(id){const k=Object.keys(ACTS).find(k=>ACTS[k].id===id);return k?ACTS[k].n:(id==="difficiles"?"Expressions difficiles":id);}
+function hardest(p,n){const c={};Object.values(S.log).forEach(l=>l.forEach(e=>{if(p===null||e.p.includes(p))e.m.forEach(k=>c[k]=(c[k]||0)+1);}));
+  return Object.entries(c).filter(([k])=>{const cards=(p===null?[0,1]:[p]).map(q=>deck(q)[k]).filter(Boolean);return !cards.length||cards.some(x=>x.box<4);}).sort((a,b)=>b[1]-a[1]).slice(0,n).map(([k,v])=>({w:WMAP[k],n:v}));}
 function who(x){return sess.solo!==null?sess.solo:((x%2)+2)%2;}
 function slots(){return sess.solo!==null?[sess.solo]:[0,1];}
 function totals(){const t=[0,0];Object.values(S.log).forEach(l=>l.forEach(e=>{t[0]+=e.s[0];t[1]+=e.s[1];}));return t;}
@@ -486,9 +525,9 @@ function logout(){try{localStorage.removeItem("jvd-last-couple");}catch(e){}sb.a
 const $=s=>document.querySelector(s);
 function esc(s){return String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));}
 function shuffle(a){a=a.slice();for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a;}
-function themeIdx(){return themeOverride!==null?themeOverride:weekNum(today())%WEEKS.length;}
+function themeIdx(){return S.theme.v!==null?S.theme.v:weekNum(today())%WEEKS.length;}
 function themeWords(){return WORDS.filter(x=>x.w===themeIdx());}
-function introduced(){return Object.keys(S.cards).map(k=>WMAP[k]).filter(Boolean);}
+function introduced(){const m={};(sess?slots():[0,1]).forEach(p=>seenWords(p).forEach(w=>m[w.k]=w));return Object.values(m);}
 function olderWords(){return introduced().filter(x=>x.w!==themeIdx());}
 function pool(){const p=introduced();const t=themeWords();const m={};p.concat(t).forEach(x=>m[x.k]=x);return Object.values(m);}
 function opts(ans,all){return shuffle([ans].concat(shuffle([...new Set(all)].filter(x=>x!==ans)).slice(0,3)));}
@@ -499,8 +538,35 @@ function chip(p,txt){return `<span class="chip ${p?"b":"a"}">${txt||("À toi, "+
 const canSay=typeof window.speechSynthesis!=="undefined";
 function sayBtn(t,cls){return canSay?`<button class="btn ghost small say ${cls||""}" data-say="${esc(t)}">Écouter</button>`:"";}
 function wireSay(el){el.querySelectorAll("[data-say]").forEach(b=>b.onclick=()=>{try{speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(b.dataset.say);u.lang="en-US";u.rate=.9;speechSynthesis.speak(u);}catch(e){}});}
-function streak(){let d=today();if(!dayLog(d).length)d=addDays(d,-1);let n=0;while(dayLog(d).length){n++;d=addDays(d,-1);}return n;}
-function dueCount(){const t=today();return Object.values(S.cards).filter(c=>c.due<=t).length;}
+function dueCount(p){return dueFor(p,today()).length;}
+function normAns(x){return String(x).toLowerCase().replace(/[’‘`]/g,"'").replace(/[.,!?;:"«»()]/g,"").replace(/\s+/g," ").trim();}
+function lev(a,b){const m=a.length,n=b.length;if(Math.abs(m-n)>2)return 9;let prev=Array.from({length:n+1},(_,j)=>j);
+  for(let i=1;i<=m;i++){const cur=[i];for(let j=1;j<=n;j++)cur[j]=Math.min(prev[j]+1,cur[j-1]+1,prev[j-1]+(a[i-1]===b[j-1]?0:1));prev=cur;}return prev[n];}
+/* 2 = exact, 1 = small typo accepted, 0 = wrong */
+function checkTyped(input,ans){const a=normAns(input),b=normAns(ans);const st=x=>x.replace(/^(a|an|the) /,"");
+  if(a===b||st(a)===st(b))return 2;const d=lev(st(a),st(b));if((b.length>=6&&d<=1)||(b.length>=12&&d<=2))return 1;return 0;}
+
+/* ---------- progress ---------- */
+function progressSection(){
+  const cur=weekNum(today()),from=Math.max(0,cur-5),weeks=[];for(let w=from;w<=cur;w++)weeks.push(w);
+  const pts={};Object.entries(S.log).forEach(([d,l])=>{const w=weekNum(d);pts[w]=pts[w]||[0,0];l.forEach(e=>{pts[w][0]+=e.s[0];pts[w][1]+=e.s[1];});});
+  const max=Math.max(1,...weeks.map(w=>Math.max(...(pts[w]||[0,0]))));
+  const me=mySlot(),hp=me!==null?me:null,hard=hardest(hp,6);
+  const mast=p=>{const c=Object.values(deck(p));const m=c.filter(x=>x.box>=4).length,l=c.length-m;return {m,l,n:WORDS.length-c.length};};
+  return `<section class="section" id="progres" aria-label="Progrès">
+    <h2>Progrès</h2>
+    <div class="mastery">${[0,1].map(p=>{const x=mast(p);return `<div class="mbox"><span class="nm" style="font-weight:700;color:var(--p${p+1})">${name(p)}</span>
+      <div class="mbar" aria-hidden="true"><i style="width:${x.m/WORDS.length*100}%;background:var(--p${p+1})"></i><i style="width:${x.l/WORDS.length*100}%;background:var(--gold)"></i></div>
+      <span class="pmeta"><b style="color:var(--ink)">${x.m}</b> maîtrisées · <b style="color:var(--ink)">${x.l}</b> en cours · ${x.n} à découvrir</span></div>`;}).join("")}</div>
+    <div class="legend"><span><i style="background:var(--p1)"></i>${name(0)}</span><span><i style="background:var(--p2)"></i>${name(1)}</span><span>Points par semaine</span></div>
+    <div class="chart" role="img" aria-label="Points par semaine">${weeks.map(w=>{const v=pts[w]||[0,0];return `<div class="wkcol"><div class="bars"><i style="height:${v[0]/max*100}%" title="${esc(S.names[0])} : ${v[0]}"></i><i class="b" style="height:${v[1]/max*100}%" title="${esc(S.names[1])} : ${v[1]}"></i></div></div>`;}).join("")}</div>
+    <div class="wklab">${weeks.map(w=>{const v=pts[w]||[0,0];return `<span>S${w+1}<br>${v[0]} · ${v[1]}</span>`;}).join("")}</div>
+    <h3>${hp!==null?"Tes":"Vos"} expressions les plus difficiles</h3>
+    ${hard.length?`<ul class="hard">${hard.map(h=>`<li><span><b>${esc(h.w.en)}</b> · <span class="tr">${esc(h.w.fr)}</span></span><small>${h.n} erreur${h.n>1?"s":""}</small></li>`).join("")}</ul>
+      <div class="row"><button class="btn primary" id="hardgo">Les retravailler (5 min)</button></div>`
+      :`<p class="hint">Elles apparaîtront ici après quelques séances : chaque erreur est notée.</p>`}
+  </section>`;
+}
 
 /* ---------- home ---------- */
 let selDay=dow(today()), editNames=false;
@@ -509,14 +575,14 @@ function renderHome(){
   const mon=addDays(t,-(dow(t)-1));
   const selDate=addDays(mon,selDay-1);
   const doneToday=dayLog(t).some(e=>e.a===act.id);const tot=totals();
-  const learned=introduced().length;
+  const me=mySlot();
   const mins=act.plan.reduce((a,b)=>a+b[1],0);
   const app=$("#app");
   app.innerHTML=`
   <header class="top"><div class="brand">Jakarta <span>Vocab</span> Duo</div><div class="sync" id="sync">${syncLabel()}</div></header>
   ${editNames?`<form class="section" id="nf"><div class="cols"><label class="ctrl">Joueur 1 <input type="text" id="n0" value="${name(0)}" maxlength="20"></label><label class="ctrl">Joueur 2 <input type="text" id="n1" value="${name(1)}" maxlength="20"></label></div><div class="row"><button class="btn primary small" type="submit">Enregistrer</button><button class="btn ghost small" type="button" id="nc">Annuler</button></div></form>`:
-  `<div class="players"><div class="pl a"><span class="nm">${name(0)}</span><span class="pts">${tot[0]} <small>points</small></span></div><div class="pl b"><span class="nm">${name(1)}</span><span class="pts">${tot[1]} <small>points</small></span></div></div>`}
-  <div class="stats"><span>Série : <b>${streak()} j</b></span><span>Expressions vues : <b>${learned}/${WORDS.length}</b></span><span>À réviser aujourd'hui : <b>${dueCount()}</b></span>${editNames?"":`<button class="btn ghost small" id="en">Changer les prénoms</button>`}</div>
+  `<div class="players">${[0,1].map(p=>`<div class="pl ${p?"b":"a"}"><span class="nm">${name(p)}${me===p?" (toi)":""}</span><span class="pts">${tot[p]} <small>points</small></span><span class="pmeta">Série ${streakFor(p)} j · ${seenWords(p).length} vues · ${dueCount(p)} à réviser</span></div>`).join("")}</div>`}
+  ${editNames?"":`<div class="stats"><button class="btn ghost small" id="en">Changer les prénoms</button><a class="btn ghost small" href="#progres" style="text-decoration:none">Voir les progrès</a></div>`}
   <section class="today" aria-labelledby="tt">
     <p class="eyebrow">${selDay===dow(t)?"Aujourd'hui":"Séance choisie"} · ${esc(longDate(selDate))} · ${HARI[selDay]}</p>
     <h2 id="tt">${act.n}</h2>
@@ -529,32 +595,36 @@ function renderHome(){
   </section>
   <section class="section" aria-label="Semaine">
     <div class="row" style="justify-content:space-between"><h2>Semaine ${wk} du programme</h2></div>
-    <div class="week">${[1,2,3,4,5,6,7].map(d=>{const dd=addDays(mon,d-1);const done=dayLog(dd).length>0;return `<button class="day ${done?"done":""} ${dd===t?"is-today":""} ${d===selDay?"sel":""}" data-d="${d}" aria-pressed="${d===selDay}"><span class="d">${DAYS[d].slice(0,3)}</span><span class="id">${HARI[d]}</span><span class="ac">${ACTS[d].n}</span><span class="dot" aria-label="${done?"faite":"pas faite"}"></span></button>`;}).join("")}</div>
-    <label class="ctrl">Thème de la semaine
-      <select id="th"><option value="">Automatique (${esc(WEEKS[weekNum(t)%WEEKS.length].t)})</option>${WEEKS.map((w,i)=>`<option value="${i}" ${themeOverride===i?"selected":""}>Semaine ${i+1} · ${esc(w.t)}</option>`).join("")}</select>
+    <div class="week">${[1,2,3,4,5,6,7].map(d=>{const dd=addDays(mon,d-1);const pa=playedOn(dd,0),pb=playedOn(dd,1);return `<button class="day ${dd===t?"is-today":""} ${d===selDay?"sel":""}" data-d="${d}" aria-pressed="${d===selDay}"><span class="d">${DAYS[d].slice(0,3)}</span><span class="id">${HARI[d]}</span><span class="ac">${ACTS[d].n}</span><span class="dots2" aria-label="${[pa?S.names[0]+" a joué":"",pb?S.names[1]+" a joué":""].filter(Boolean).join(", ")||"pas de séance"}"><i class="a ${pa?"on":""}"></i><i class="b ${pb?"on":""}"></i></span></button>`;}).join("")}</div>
+    <label class="ctrl">Thème de la semaine (commun à vous deux)
+      <select id="th"><option value="">Automatique (${esc(WEEKS[weekNum(t)%WEEKS.length].t)})</option>${WEEKS.map((w,i)=>`<option value="${i}" ${S.theme.v===i?"selected":""}>Semaine ${i+1} · ${esc(w.t)}</option>`).join("")}</select>
     </label>
   </section>
   <section class="section" aria-label="Vocabulaire">
     <h2>Vocabulaire</h2>
-    ${WEEKS.map((w,i)=>{const ws=WORDS.filter(x=>x.w===i);const seen=ws.filter(x=>S.cards[x.k]).length;return `<details class="wk" ${i===th?"open":""}><summary>${i+1}. ${esc(w.t)} <span>${seen}/12 vues</span></summary><ul class="wl">${ws.map(x=>{const c=S.cards[x.k];const b=c?c.box:0;return `<li><span class="en">${esc(x.en)}</span><span class="fr">${esc(x.fr)}</span><span class="lv" title="${c?"Boîte "+b+" sur 5":"Pas encore vue"}">${[1,2,3,4,5].map(n=>`<i class="${n<=b?"on":""}"></i>`).join("")}</span></li>`;}).join("")}</ul></details>`;}).join("")}
+    <p class="hint">Les points indiquent le niveau de chacun, de 1 à 5 : ${name(0)} en vert, ${name(1)} en rouge. Au niveau 4, l'expression est considérée comme maîtrisée.</p>
+    ${WEEKS.map((w,i)=>{const ws=WORDS.filter(x=>x.w===i);const seen=[0,1].map(p=>ws.filter(x=>deck(p)[x.k]).length);return `<details class="wk" ${i===th?"open":""}><summary>${i+1}. ${esc(w.t)} <span>${seen[0]}/12 · ${seen[1]}/12</span></summary><ul class="wl">${ws.map(x=>`<li><span class="en">${esc(x.en)}</span><span class="fr">${esc(x.fr)}</span><span class="lvs">${[0,1].map(p=>{const c=deck(p)[x.k];const b=c?c.box:0;return `<span class="lv" title="${esc(S.names[p])} : ${c?"niveau "+b+" sur 5":"pas encore vue"}">${[1,2,3,4,5].map(n=>`<i class="${n<=b?"on "+(p?"b":""):""}"></i>`).join("")}</span>`;}).join("")}</span></li>`).join("")}</ul></details>`;}).join("")}
   </section>
+  ${progressSection()}
   <section class="section" aria-label="Méthode">
     <h2>Pourquoi ça marche</h2>
     <ul class="method">
       <li><span class="k">1</span><p><b>Se tester plutôt que relire.</b> Chaque séance vous fait chercher la réponse avant de la voir. Les études sur le vocabulaire montrent que ce rappel actif, répété sur plusieurs jours, retient mieux que la relecture.</p></li>
-      <li><span class="k">2</span><p><b>Des intervalles qui s'allongent.</b> Une expression bien sue revient après 1, 2, 4, 8 puis 16 jours. Une erreur la remet à demain. C'est le système des boîtes de Leitner.</p></li>
+      <li><span class="k">2</span><p><b>Des intervalles qui s'allongent.</b> Une expression bien sue revient après 1, 2, 4, 8 puis 16 jours. Une erreur la remet à demain. Chacun a son propre paquet, qui avance à son rythme.</p></li>
       <li><span class="k">3</span><p><b>Des expressions, pas des mots seuls.</b> On apprend « sign a lease » plutôt que « lease », toujours dans une phrase : les blocs de mots se retiennent mieux et servent directement à l'oral.</p></li>
       <li><span class="k">4</span><p><b>Deviner avant d'apprendre.</b> Le lundi commence par un prétest. Se tromper d'abord prépare la mémoire à la bonne réponse.</p></li>
-      <li><span class="k">5</span><p><b>Parler à deux.</b> Taboo, jeux de rôle et histoires vous obligent à produire l'anglais, pas seulement à le reconnaître.</p></li>
+      <li><span class="k">5</span><p><b>Produire, pas seulement reconnaître.</b> Écrire la réponse soi-même et parler (Taboo, jeux de rôle, histoires) demande plus d'effort que choisir parmi quatre options, et c'est cet effort qui fixe l'expression.</p></li>
     </ul>
   </section>
   ${sb&&user&&couple?`<div class="account"><span>Connecté : <span style="color:var(--ink)">${esc(user.email||"")}</span></span><span>Code de votre espace couple : <b>${esc(couple.code)}</b></span><div class="row"><button class="btn ghost small" id="lo">Se déconnecter</button></div></div>`:""}
   <p class="foot">8 semaines de thèmes, puis le programme recommence avec vos révisions. Bon départ pour Jakarta.</p>`;
+  if(location.hash==="#progres"){const el=document.getElementById("progres");if(el)el.scrollIntoView();}
   if($("#lo"))$("#lo").onclick=logout;
   $("#go").onclick=()=>startSession(act.id,null);
   app.querySelectorAll(".solo").forEach(b=>b.onclick=()=>startSession(act.id,+b.dataset.p));
   app.querySelectorAll(".day").forEach(b=>b.onclick=()=>{selDay=+b.dataset.d;renderHome();});
-  $("#th").onchange=e=>{themeOverride=e.target.value===""?null:+e.target.value;try{localStorage.setItem("jvd-theme",e.target.value);}catch(x){}renderHome();};
+  $("#th").onchange=e=>{S.theme={v:e.target.value===""?null:+e.target.value,u:Date.now()};save();renderHome();};
+  const hb=$("#hardgo");if(hb)hb.onclick=()=>startSession("difficiles",me);
   if(editNames){$("#nf").onsubmit=e=>{e.preventDefault();S.names=[$("#n0").value.trim()||"Joueur 1",$("#n1").value.trim()||"Joueur 2"];S.namesU=Date.now();editNames=false;save();renderHome();};$("#nc").onclick=()=>{editNames=false;renderHome();};}
   else $("#en").onclick=()=>{editNames=true;renderHome();};
 }
@@ -573,7 +643,7 @@ function tickClock(){const el=$("#clk");if(!el||!sess)return;const s=Math.floor(
 function renderSession(){
   stopTimers();
   const st=sess.steps[sess.step];
-  $("#app").innerHTML=`<div class="sbar"><div class="shead"><span class="eyebrow">${esc(ACTS[Object.keys(ACTS).find(k=>ACTS[k].id===sess.id)].n)} · ${esc(st.title)}</span><span class="clock" id="clk"></span></div>
+  $("#app").innerHTML=`<div class="sbar"><div class="shead"><span class="eyebrow">${esc(actName(sess.id))} · ${esc(st.title)}</span><span class="clock" id="clk"></span></div>
     <div class="steps">${sess.steps.map((s,i)=>`<i class="${i<sess.step?"on":i===sess.step?"cur":""}"></i>`).join("")}</div>
     <div class="row" style="justify-content:space-between"><div class="row">${slots().map(p=>chip(p,name(p)+" · "+sess.scores[p])).join("")}</div><button class="btn ghost small" id="quit">Quitter</button></div>
     <div id="qc"></div></div>
@@ -590,11 +660,11 @@ function refreshScores(){const c=document.querySelectorAll(".sbar .chip");slots(
 function finish(complete){
   stopTimers();clearInterval(sess.clock);
   const now=Date.now();
-  for(const k in sess.updates)S.cards[k]=Object.assign({},sess.updates[k],{u:now});
+  for(const key in sess.updates){const [p,k]=key.split("|");deck(+p)[k]=Object.assign({},sess.updates[key],{u:now});}
   if(complete){
     const tom=addDays(today(),1);
-    themeWords().forEach(w=>{if(!S.cards[w.k])S.cards[w.k]={box:1,due:tom,u:0};});
-    const t=today();S.log[t]=dayLog(t).concat({id:now.toString(36)+Math.random().toString(36).slice(2,7),a:sess.id,s:sess.scores.slice()});
+    if(sess.id!=="difficiles")slots().forEach(p=>themeWords().forEach(w=>{if(!deck(p)[w.k])deck(p)[w.k]={box:1,due:tom,u:0};}));
+    const t=today();S.log[t]=dayLog(t).concat({id:now.toString(36)+Math.random().toString(36).slice(2,7),a:sess.id,s:sess.scores.slice(),p:slots(),m:uniq(sess.missed).map(w=>w.k).slice(0,40)});
   }
   if(complete||Object.keys(sess.updates).length)save().then(()=>{if(!sess)renderHome();});
   sess=null;selDay=dow(today());renderHome();window.scrollTo({top:0});
@@ -625,29 +695,56 @@ function quizStep(title,mins,makeItems,intro,noMiss){
 function frToEn(w,all){return {word:w,prompt:esc(w.fr),sub:blank(w.ex),answer:w.en,options:opts(w.en,all),after:`<p class="ex">${hl(w)}</p>`};}
 function gapItem(w,all){return {word:w,sentence:true,prompt:blank(w.ex),sub:"Quelle expression complète la phrase ?",answer:w.en,options:opts(w.en,all),after:`<p class="ex">${hl(w)}</p><p class="tr">${esc(w.fr)}</p>`};}
 
-/* spaced review */
+/* spaced review: each player reviews their own deck; in a duo session turns alternate */
 function reviewStep(max,mins,title){
   return {title:title||"Révision espacée",mins,run(el,next){
-    const t=today();
-    const due=Object.entries(S.cards).filter(([k,c])=>c.due<=t&&WMAP[k]).sort((a,b)=>a[1].due.localeCompare(b[1].due)||a[1].box-b[1].box).slice(0,max).map(([k])=>WMAP[k]);
-    if(!due.length){
-      el.innerHTML=`<h3>Rien à réviser aujourd'hui</h3><p class="sub">${Object.keys(S.cards).length?"Toutes vos expressions sont à jour. Elles reviendront au bon moment.":"Vos premières révisions arriveront demain, après la séance d'aujourd'hui."}</p><div class="row end"><button class="btn primary" id="nx">Continuer</button></div>`;
+    const t=today(),ps=slots(),per=Math.ceil(max/ps.length);
+    const lists=ps.map(p=>dueFor(p,t).slice(0,per).map(([k])=>({w:WMAP[k],p})));
+    const first=who(sess.turn),order=ps.length===2?[first,1-first]:ps;
+    const seq=[];while(lists.some(l=>l.length))order.forEach(p=>{const l=lists[ps.indexOf(p)];if(l.length)seq.push(l.shift());});
+    if(!seq.length){
+      const any=ps.some(p=>Object.keys(deck(p)).length);
+      el.innerHTML=`<h3>Rien à réviser aujourd'hui</h3><p class="sub">${any?"Toutes les expressions sont à jour. Elles reviendront au bon moment.":"Les premières révisions arriveront demain, après la séance d'aujourd'hui."}</p><div class="row end"><button class="btn primary" id="nx">Continuer</button></div>`;
       $("#nx").onclick=next;return;
     }
     let i=0;
     const show=()=>{
-      if(i>=due.length)return next();
-      const w=due[i],p=who(sess.turn),c=S.cards[w.k];
-      el.innerHTML=`${i===0?`<p class="note">Dites l'expression anglaise à voix haute avant de retourner la carte. Soyez honnêtes : une carte ratée revient demain, une carte sue revient plus tard.</p>`:""}
-        <div class="qhead">${chip(p)}<span class="count">${i+1}/${due.length} · boîte ${c.box}</span></div>
+      if(i>=seq.length)return next();
+      const {w,p}=seq[i],c=deck(p)[w.k];
+      el.innerHTML=`${i===0?`<p class="note">Dis l'expression anglaise à voix haute avant de retourner la carte. Sois honnête : une carte ratée revient demain, une carte sue revient plus tard.</p>`:""}
+        <div class="qhead">${chip(p)}<span class="count">${i+1}/${seq.length} · niveau ${c.box}</span></div>
         <div class="prompt">${esc(w.fr)}</div><p class="sub">${blank(w.ex)}</p>
         <div class="row end"><button class="btn primary" id="rv">Voir la réponse</button></div><div class="after" hidden></div>`;
       const rv=$("#rv");rv.focus();
       rv.onclick=()=>{rv.hidden=true;const a=el.querySelector(".after");a.hidden=false;
         a.innerHTML=`<div class="answer">${esc(w.en)}</div><p class="ex">${hl(w)}</p><div class="row end">${sayBtn(w.en)}<button class="btn ghost" id="ko">Pas encore</button><button class="btn primary" id="ok">Je savais</button></div>`;
         wireSay(a);
-        const grade=ok=>{const nb=ok?Math.min(5,c.box+1):1;sess.updates[w.k]={box:nb,due:addDays(t,ok?IV[nb]:1)};if(ok)point(p);else sess.missed.push(w);refreshScores();i++;sess.turn++;show();};
+        const grade=ok=>{const nb=ok?Math.min(5,c.box+1):1;sess.updates[p+"|"+w.k]={box:nb,due:addDays(t,ok?IV[nb]:1)};if(ok)point(p);else sess.missed.push(w);refreshScores();i++;sess.turn++;show();};
         $("#ok").onclick=()=>grade(true);$("#ko").onclick=()=>grade(false);};
+    };show();
+  }};
+}
+
+/* typed recall: produce the expression, not just recognise it */
+function typeStep(title,mins,getWords,intro){
+  return {title,mins,run(el,next){
+    const ws=getWords();let i=0;
+    if(!ws.length)return next();
+    const show=()=>{
+      if(i>=ws.length)return next();
+      const w=ws[i],p=who(sess.turn);
+      el.innerHTML=`${intro&&i===0?`<p class="note">${intro}</p>`:""}<div class="qhead">${chip(p)}<span class="count">${i+1}/${ws.length}</span></div>
+        <div class="prompt">${esc(w.fr)}</div><p class="sub">${blank(w.ex)}</p>
+        <form id="tf" class="form" autocomplete="off"><label for="ta">Écris l'expression en anglais</label><input type="text" id="ta" autocapitalize="off" autocorrect="off" spellcheck="false" enterkeyhint="done">
+        <div class="row end"><button class="btn ghost" type="button" id="tk">Je ne sais pas</button><button class="btn primary" type="submit">Valider</button></div></form>
+        <div class="after" hidden></div>`;
+      const inp=$("#ta");inp.focus();
+      const done=r=>{$("#tf").hidden=true;if(r>0)point(p);else sess.missed.push(w);refreshScores();
+        const a=el.querySelector(".after");a.hidden=false;
+        a.innerHTML=`<p class="fb ${r?"ok":"ko"}">${r===2?"Exact !":r===1?"Presque, attention à l'orthographe :":"La bonne réponse :"}</p><div class="answer">${esc(w.en)}</div>${r<2&&inp.value.trim()?`<p class="hint">Tu as écrit : ${esc(inp.value.trim())}</p>`:""}<p class="ex">${hl(w)}</p><div class="row end">${sayBtn(w.en)}<button class="btn primary" id="nx">Suivant</button></div>`;
+        wireSay(a);const nx=a.querySelector("#nx");nx.onclick=()=>{i++;sess.turn++;show();};nx.focus();};
+      $("#tf").onsubmit=e=>{e.preventDefault();if(!inp.value.trim())return;done(checkTyped(inp.value,w.en));};
+      $("#tk").onclick=()=>done(0);
     };show();
   }};
 }
@@ -806,7 +903,7 @@ function endStep(){
     el.innerHTML=`<p class="eyebrow">Séance terminée</p><h3>${sess.solo!==null?"Bravo "+name(sess.solo):a===b?"Égalité parfaite":(a>b?name(0):name(1))+" remporte la séance"}</h3>
       <div class="score2">${slots().map(p=>`<div class="pl ${p?"b":"a"}"><span class="nm">${name(p)}</span><span class="pts">+${sess.scores[p]}</span></div>`).join("")}</div>
       ${m.length?`<p class="sub">À retravailler : ${m.slice(0,8).map(w=>`<b>${esc(w.en)}</b>`).join(", ")}${m.length>8?"…":""}</p>`:""}
-      ${themeWords().some(w=>!S.cards[w.k])?`<p class="hint">Les expressions du thème « ${esc(WEEKS[themeIdx()].t)} » rejoignent vos révisions à partir de demain.</p>`:""}
+      ${sess.id!=="difficiles"&&themeWords().some(w=>slots().some(p=>!deck(p)[w.k]))?`<p class="hint">Les expressions du thème « ${esc(WEEKS[themeIdx()].t)} » rejoignent vos révisions à partir de demain.</p>`:""}
       <div class="row end"><button class="btn primary" id="fin">Enregistrer et terminer</button></div>`;
     $("#fin").onclick=()=>finish(true);
   }};
@@ -815,25 +912,37 @@ function endStep(){
 function buildSteps(id){
   const all=()=>themeWords().map(x=>x.en);
   switch(id){
+    case "difficiles":{const hw=hardest(sess.solo,8).map(h=>h.w);const en=WORDS.map(x=>x.en);return [
+      typeStep("À l'écrit",3,()=>shuffle(hw),"Les expressions qui vous ont posé problème. Écris-les de mémoire."),
+      quizStep("En contexte",2,()=>shuffle(hw).map(w=>gapItem(w,en)),"Même expressions, dans leur phrase."),
+      endStep()];}
     case "decouverte":return [reviewStep(10,3),
       quizStep("Prétest",3,()=>shuffle(themeWords()).map(w=>({word:w,prompt:esc(w.en),sub:"Que veut dire cette expression ? Devinez !",answer:w.fr,options:opts(w.fr,themeWords().map(x=>x.fr)),after:`<p class="ex">${hl(w)}</p>`})),"Devinez le sens avant d'apprendre. Se tromper ici n'a aucune importance : chercher la réponse prépare la mémoire.",true),
       learnStep(),
       quizStep("Rappel",3,()=>shuffle(themeWords()).map(w=>frToEn(w,all())),"Maintenant, dans l'autre sens : retrouvez l'expression anglaise."),
       endStep()];
     case "taboo":return [reviewStep(10,3),tabooStep(),endStep()];
-    case "trous":return [reviewStep(10,3),quizStep("Phrases à trous",6,()=>shuffle(themeWords()).map(w=>gapItem(w,all())),"Lisez la phrase à voix haute en remplaçant le blanc, puis choisissez."),oralStep(),endStep()];
+    case "trous":{const order=shuffle(themeWords());return [reviewStep(10,3),
+      quizStep("Phrases à trous",4,()=>order.slice(0,8).map(w=>gapItem(w,all())),"Lis la phrase à voix haute en remplaçant le blanc, puis choisis."),
+      typeStep("À l'écrit",4,()=>order.slice(8,12).concat(shuffle(order.slice(0,8)).slice(0,2)),"Maintenant sans options : écris l'expression de mémoire. Chercher la réponse soi-même la fixe beaucoup mieux que la reconnaître."),
+      oralStep(),endStep()];}
     case "role":return [reviewStep(10,3),roleStep(0),roleStep(1),endStep()];
     case "duel":return [reviewStep(10,3),duelStep(),missedStep(),endStep()];
     case "histoire":return [reviewStep(10,3),storyStep(),endStep()];
     case "bilan":return [reviewStep(24,6,"Grande révision"),
-      quizStep("Quiz mélangé",6,()=>{const P=pool(),en=P.map(x=>x.en);return shuffle(P).slice(0,10).map((w,i)=>i%2?gapItem(w,en):frToEn(w,en));},"Ce quiz mélange toutes les semaines déjà vues : alterner les thèmes aide à mieux distinguer les expressions."),
+      quizStep("Quiz mélangé",4,()=>{const P=pool(),en=P.map(x=>x.en);return shuffle(P).slice(0,8).map((w,i)=>i%2?gapItem(w,en):frToEn(w,en));},"Ce quiz mélange toutes les semaines déjà vues : alterner les thèmes aide à mieux distinguer les expressions."),
+      typeStep("À l'écrit",3,()=>shuffle(pool()).slice(0,5),"Pour finir, écris quelques expressions de mémoire."),
       recapStep(),endStep()];
   }
 }
 
 /* ---------- boot ---------- */
 (function boot(){
-  if(!sb){renderHome();return;}
+  if("serviceWorker" in navigator&&location.protocol==="https:")navigator.serviceWorker.register("sw.js").catch(()=>{});
+  if(!sb){
+    if(libMissing){let last=null;try{last=JSON.parse(localStorage.getItem("jvd-last-couple"));}catch(e){}
+      if(last&&last.id){couple=last;KEY="jvd-c-"+couple.id;loadCache();}}
+    renderHome();return;}
   let first=true;
   sb.auth.onAuthStateChange((ev,session)=>{
     const u=session&&session.user||null;
