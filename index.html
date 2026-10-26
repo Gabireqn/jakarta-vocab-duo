@@ -356,11 +356,11 @@ function norm(o){o=o||{};const b=blankState();const log={};const src=o.log&&type
   for(const d in src){if(Array.isArray(src[d]))log[d]=src[d].filter(e=>e&&typeof e==="object"&&e.id).map(e=>({id:String(e.id),a:String(e.a),s:Array.isArray(e.s)?[+e.s[0]||0,+e.s[1]||0]:[0,0]}));}
   const members={};if(o.members&&typeof o.members==="object")for(const k in o.members){const v=+o.members[k];if(v===0||v===1)members[k]=v;}
   return {names:Array.isArray(o.names)&&o.names.length===2?o.names.map(String):b.names,namesU:+o.namesU||0,members,cards:o.cards&&typeof o.cards==="object"?JSON.parse(JSON.stringify(o.cards)):{},log};}
-/* merge two states: newest name edit wins, each card keeps its most recent review, sessions are unioned */
+/* merge two states (a = server, b = this device): newest name edit wins, each card keeps its most recent review, sessions are unioned and the server copy of a session wins */
 function merge(a,b){const o=blankState();
   o.names=(b.namesU||0)>=(a.namesU||0)?b.names:a.names;o.members=Object.assign({},b.members,a.members);o.namesU=Math.max(a.namesU||0,b.namesU||0);
   o.cards=Object.assign({},a.cards);for(const k in b.cards){const x=a.cards[k],y=b.cards[k];if(!x||(+y.u||0)>(+x.u||0))o.cards[k]=y;}
-  new Set(Object.keys(a.log).concat(Object.keys(b.log))).forEach(d=>{const m={};(a.log[d]||[]).concat(b.log[d]||[]).forEach(e=>m[e.id]=e);o.log[d]=Object.values(m);});
+  new Set(Object.keys(a.log).concat(Object.keys(b.log))).forEach(d=>{const m={};(b.log[d]||[]).concat(a.log[d]||[]).forEach(e=>m[e.id]=e);o.log[d]=Object.values(m);});
   return o;}
 let S=blankState();
 function loadCache(){try{const raw=localStorage.getItem(KEY);S=raw?norm(JSON.parse(raw)):blankState();}catch(e){S=blankState();}}
