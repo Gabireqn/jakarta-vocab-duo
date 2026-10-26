@@ -1,0 +1,839 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Jakarta Vocab Duo</title>
+<meta name="theme-color" content="#13917A">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Vocab Duo">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&display=swap">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
+<script src="config.js"></script>
+<style>
+/* Layout: single column "commuter card" app — today's session up top, week strip, then vocabulary. Deliberately light-only, bright tropical palette. */
+:root{
+  --bg:#F6FAF8; --surface:#FFFFFF; --sunk:#EDF4F1; --ink:#22332E; --muted:#5F716A; --line:#DCE7E2;
+  --p1:#13917A; --p1-soft:#DFF5EF; --p2:#E2553A; --p2-soft:#FDE9E3; --gold:#E0A21B; --gold-soft:#FFF4D6;
+  --cta:#13917A; --cta-ink:#FFFFFF;
+  --display:"Bricolage Grotesque", "Arial Narrow", system-ui, sans-serif;
+  --body:"Atkinson Hyperlegible", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --r:14px; color-scheme:light;
+}
+*{box-sizing:border-box}
+html{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+body{margin:0}
+[hidden]{display:none!important}
+img{max-width:100%}
+body{background:var(--bg);color:var(--ink);font-family:var(--body);font-size:16px;line-height:1.5}
+#app{max-width:680px;margin:0 auto;padding-block:20px 48px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));display:flex;flex-direction:column;gap:22px}
+h1,h2,h3{font-family:var(--display);margin:0;line-height:1.15;text-wrap:balance}
+h2{font-size:1.25rem;font-weight:700}
+h3{font-size:1.2rem;font-weight:700}
+p{margin:0}
+button{font:inherit;color:inherit;cursor:pointer}
+button:focus-visible,input:focus-visible,select:focus-visible,summary:focus-visible{outline:3px solid var(--gold);outline-offset:2px}
+.top{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.brand{font-family:var(--display);font-weight:800;font-size:1.35rem;letter-spacing:-.01em}
+.brand span{color:var(--p2)}
+.sync{font-size:.8rem;color:var(--muted)}
+.eyebrow{font-size:.75rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);font-weight:700}
+.players{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.pl{border-radius:var(--r);padding:12px 14px;display:flex;flex-direction:column;gap:2px}
+.pl.a{background:var(--p1-soft)} .pl.b{background:var(--p2-soft)}
+.pl .nm{font-weight:700;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pl.a .nm{color:var(--p1)} .pl.b .nm{color:var(--p2)}
+.pl .pts{font-family:var(--display);font-size:1.6rem;font-weight:800;font-variant-numeric:tabular-nums}
+.pl .pts small{font-family:var(--body);font-size:.8rem;font-weight:400;color:var(--muted)}
+.stats{display:flex;gap:18px;flex-wrap:wrap;font-size:.9rem;color:var(--muted)}
+.stats b{color:var(--ink);font-variant-numeric:tabular-nums}
+.today{background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:24px 20px 20px;box-shadow:0 6px 24px -14px rgba(19,145,122,.35);display:flex;flex-direction:column;gap:14px;position:relative;overflow:hidden}
+.today::before{content:"";position:absolute;inset:0 0 auto 0;height:6px;background:repeating-linear-gradient(90deg,var(--p1) 0 28px,var(--p2) 28px 56px)}
+.today h2{font-size:1.9rem;font-weight:800;letter-spacing:-.015em}
+.today .desc{color:var(--muted)}
+.plan{display:flex;flex-wrap:wrap;gap:8px;list-style:none;padding:0;margin:0}
+.plan li{background:var(--sunk);border-radius:999px;padding:4px 12px;font-size:.85rem}
+.plan li b{font-variant-numeric:tabular-nums}
+.theme-line{font-size:.9rem;color:var(--muted)}
+.theme-line b{color:var(--ink)}
+.btn{border:0;border-radius:12px;padding:12px 18px;font-weight:700;background:var(--sunk)}
+.btn.primary{background:var(--cta);color:var(--cta-ink)}
+.btn.primary:not(:disabled):hover{filter:brightness(1.07)}
+.btn.ghost{background:transparent;border:1px solid var(--line)}
+.btn.small{padding:6px 12px;font-size:.85rem;border-radius:10px}
+.btn:disabled{opacity:.45;cursor:default}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.row.end{justify-content:flex-end}
+.week{display:grid;grid-template-columns:repeat(7,1fr);gap:6px}
+.day{border:1px solid var(--line);background:var(--surface);border-radius:12px;padding:8px 4px;display:flex;flex-direction:column;align-items:center;gap:2px;min-width:0}
+.day .d{font-weight:700;font-size:.9rem}
+.day .id{font-size:.65rem;color:var(--muted)}
+.day .ac{font-size:.68rem;color:var(--muted);text-align:center;line-height:1.2;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+.day .dot{width:8px;height:8px;border-radius:50%;background:var(--line);margin-top:2px}
+.day.done .dot{background:var(--p1)}
+.day.is-today{border-color:var(--p1);border-width:2px}
+.day.sel{background:var(--gold-soft);border-color:var(--gold)}
+.section{display:flex;flex-direction:column;gap:12px}
+.ctrl{display:flex;gap:8px;align-items:center;flex-wrap:wrap;font-size:.9rem;color:var(--muted)}
+select,input[type=text]{font:inherit;color:var(--ink);background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:8px 10px;max-width:100%}
+details.wk{background:var(--surface);border:1px solid var(--line);border-radius:var(--r)}
+details.wk summary{padding:12px 14px;cursor:pointer;display:flex;justify-content:space-between;gap:10px;font-weight:700;list-style:none}
+details.wk summary::-webkit-details-marker{display:none}
+details.wk summary span{color:var(--muted);font-weight:400;font-size:.85rem;white-space:nowrap}
+.wl{list-style:none;margin:0;padding:0 14px 12px;display:flex;flex-direction:column}
+.wl li{display:grid;grid-template-columns:1fr auto;gap:2px 10px;padding:8px 0;border-top:1px solid var(--line)}
+.wl .en{font-weight:700}
+.wl .fr{color:var(--muted);font-size:.9rem;grid-column:1}
+.wl .lv{grid-row:1/3;grid-column:2;align-self:center;display:flex;gap:3px}
+.lv i{width:7px;height:7px;border-radius:50%;background:var(--line)}
+.lv i.on{background:var(--p1)}
+.method{list-style:none;padding:0;margin:0;display:flex;flex-direction:column;gap:10px}
+.method li{display:grid;grid-template-columns:auto 1fr;gap:12px;align-items:start}
+.method .k{font-family:var(--display);font-weight:800;color:var(--p2);min-width:1.4em}
+.method p{color:var(--muted);font-size:.95rem}
+.method b{color:var(--ink)}
+/* session */
+.sbar{display:flex;flex-direction:column;gap:10px}
+.shead{display:flex;justify-content:space-between;align-items:center;gap:10px}
+.steps{display:flex;gap:6px}
+.steps i{flex:1;height:5px;border-radius:3px;background:var(--line)}
+.steps i.on{background:var(--p1)} .steps i.cur{background:var(--gold)}
+.clock{font-variant-numeric:tabular-nums;font-size:.9rem;color:var(--muted)}
+.clock.over{color:var(--p2);font-weight:700}
+.stage{background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:20px;display:flex;flex-direction:column;gap:14px;min-height:300px}
+.qhead{display:flex;justify-content:space-between;align-items:center;gap:10px}
+.count{font-size:.85rem;color:var(--muted);font-variant-numeric:tabular-nums}
+.chip{display:inline-flex;align-items:center;gap:6px;border-radius:999px;padding:4px 12px;font-weight:700;font-size:.9rem}
+.chip.a{background:var(--p1-soft);color:var(--p1)} .chip.b{background:var(--p2-soft);color:var(--p2)}
+.prompt{font-family:var(--display);font-size:1.6rem;font-weight:700;line-height:1.25}
+.prompt.sentence{font-family:var(--body);font-size:1.25rem;font-weight:400}
+.sub{color:var(--muted)}
+.blank{display:inline-block;min-width:4.5em;border-bottom:2px solid var(--gold);height:1em;vertical-align:baseline}
+.note{background:var(--gold-soft);border-radius:12px;padding:10px 14px;font-size:.92rem}
+.hint{font-size:.88rem;color:var(--muted)}
+.opts{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+@media (max-width:460px){.opts{grid-template-columns:1fr}}
+.opt{border:1px solid var(--line);background:var(--surface);border-radius:12px;padding:12px;text-align:left;font-weight:700}
+.opt:not(:disabled):hover{border-color:var(--p1)}
+.opt.right{background:var(--p1-soft);border-color:var(--p1);color:var(--p1)}
+.opt.wrong{background:var(--p2-soft);border-color:var(--p2);color:var(--p2)}
+.opt:disabled{cursor:default}
+.after{display:flex;flex-direction:column;gap:10px;border-top:1px dashed var(--line);padding-top:12px}
+.fb{font-weight:700}.fb.ok{color:var(--p1)}.fb.ko{color:var(--p2)}
+.ex{font-style:italic}
+.ex b,.lc b{font-style:normal;color:var(--p1)}
+.tr{color:var(--muted)}
+.answer{font-family:var(--display);font-size:1.7rem;font-weight:800;color:var(--p1)}
+.timer{display:flex;align-items:center;gap:10px}
+.tbar{flex:1;height:10px;background:var(--sunk);border-radius:5px;overflow:hidden}
+.tbar i{display:block;height:100%;width:100%;background:var(--gold);transition:width .2s linear}
+.tnum{font-variant-numeric:tabular-nums;font-weight:700;min-width:3.2em;text-align:right}
+.tcard{background:var(--bg);border-radius:14px;padding:22px 16px;text-align:center;display:flex;flex-direction:column;gap:6px}
+.big{font-family:var(--display);font-size:2.2rem;font-weight:800;line-height:1.1;overflow-wrap:anywhere}
+.lcards{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px}
+.lc{background:var(--bg);border-radius:12px;padding:12px 14px;display:grid;grid-template-columns:1fr auto;gap:2px 10px;align-items:center}
+.lc .en{font-family:var(--display);font-weight:700;font-size:1.15rem}
+.lc .fr{color:var(--muted);font-size:.9rem}
+.lc .ex{grid-column:1/-1;font-size:.95rem}
+.lc .say{grid-row:1/3;grid-column:2}
+.roles{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+@media (max-width:520px){.roles{grid-template-columns:1fr}}
+.role{border-radius:12px;padding:12px;display:flex;flex-direction:column;gap:8px}
+.role.a{background:var(--p1-soft)} .role.b{background:var(--p2-soft)}
+.role h4{margin:0;font-size:1rem}
+.role .who{font-size:.8rem;font-weight:700}
+.role.a .who{color:var(--p1)} .role.b .who{color:var(--p2)}
+.tg{display:flex;flex-direction:column;gap:6px}
+.tgt{border:1px solid var(--line);background:var(--surface);border-radius:10px;padding:8px 10px;text-align:left;display:flex;flex-direction:column}
+.tgt small{color:var(--muted);font-weight:400}
+.tgt.used{border-color:var(--p1);background:var(--p1-soft);text-decoration:line-through;text-decoration-thickness:2px}
+.tgt.used small{text-decoration:none}
+.score2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.missed{display:flex;flex-direction:column;gap:6px}
+.missed div{background:var(--bg);border-radius:10px;padding:8px 12px}
+.missed b{display:inline-block;margin-right:6px}
+.confirm{background:var(--p2-soft);border-radius:12px;padding:12px;display:flex;flex-direction:column;gap:10px}
+.cols{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+@media (max-width:460px){.cols{grid-template-columns:1fr}}
+.foot{font-size:.8rem;color:var(--muted);text-align:center}
+@media (prefers-reduced-motion:reduce){.tbar i{transition:none}}
+.auth{max-width:520px;width:100%;margin:0 auto}
+.form{display:flex;flex-direction:column;gap:8px}
+.form label{font-weight:700;font-size:.9rem}
+input[type=email],input[type=password]{font:inherit;color:var(--ink);background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:10px 12px;max-width:100%}
+.form .btn{margin-top:6px}
+.msg{border-radius:10px;padding:10px 12px;background:var(--p1-soft);color:var(--p1);font-size:.92rem}
+.msg.err{background:var(--p2-soft);color:var(--p2)}
+.box{background:var(--bg);border:1px solid var(--line);border-radius:14px;padding:16px;display:flex;flex-direction:column;gap:10px}
+.code{font-family:var(--display);font-size:1.8rem;font-weight:800;letter-spacing:.15em;color:var(--p1)}
+.account{display:flex;flex-direction:column;gap:6px;font-size:.88rem;color:var(--muted);border-top:1px solid var(--line);padding-top:14px}
+.account b{color:var(--ink);letter-spacing:.08em}
+.loading{text-align:center;color:var(--muted);padding:40px 0}
+</style>
+</head>
+<body>
+
+<div id="app"></div>
+
+<script>
+/* ---------- Vocabulary: 8 themed weeks, 12 expressions each ---------- */
+const WEEKS = [
+ {t:"S'installer", en:"Settling in", w:[
+  ["sign a lease","signer un bail","We need to ___ before the landlord gives us the keys."],
+  ["landlord","propriétaire (bailleur)","Our ___ lives on the ground floor and is very friendly."],
+  ["security deposit","caution","The ___ is two months' rent, paid in advance."],
+  ["utilities","charges (eau, électricité, internet)","Are ___ included in the rent, or do we pay them separately?"],
+  ["fully furnished","entièrement meublé","The apartment is ___, so we only need to buy towels."],
+  ["move in","emménager","We can ___ on the first of January."],
+  ["power outage","coupure de courant","There was a ___ last night, so the AC stopped working."],
+  ["top up","recharger (crédit, carte)","I need to ___ my phone credit before we leave."],
+  ["building manager","gestionnaire de l'immeuble","Call the ___ if the water heater breaks."],
+  ["run errands","faire des petites courses / démarches","I'll ___ this morning: bank, post office, pharmacy."],
+  ["settle in","s'installer, prendre ses marques","It took us about two weeks to ___ in Jakarta."],
+  ["leak","fuite","There's a ___ under the kitchen sink."]],
+  role:[
+   {t:"Visite d'appartement à Kemang",s:"L'un visite un appartement, l'autre est le propriétaire. Négociez les détails avant de signer.",a:["Locataire",["fully furnished","utilities","security deposit"]],b:["Propriétaire",["sign a lease","move in","building manager"]]},
+   {t:"Un problème dans l'appart",s:"Le locataire appelle l'immeuble un soir : rien ne va. Le gestionnaire essaie d'aider.",a:["Locataire",["leak","power outage","landlord"]],b:["Gestionnaire",["settle in","utilities","run errands"]]}]},
+ {t:"Se déplacer", en:"Getting around", w:[
+  ["book a ride","réserver une course (VTC)","Let me ___ on the app; it'll be here in five minutes."],
+  ["pick-up point","point de prise en charge","The driver is waiting at the ___ near the lobby."],
+  ["drop me off","me déposer","Could you ___ at the main entrance, please?"],
+  ["traffic jam","embouteillage","We were stuck in a ___ for over an hour."],
+  ["rush hour","heure de pointe","Avoid Sudirman during ___ if you can."],
+  ["toll road","autoroute à péage","Taking the ___ is faster but costs a bit more."],
+  ["on the way","sur le chemin","The pharmacy is ___, so let's stop there."],
+  ["take a detour","faire un détour","The road is flooded, so we have to ___."],
+  ["fare","prix du trajet","The ___ was only 25,000 rupiah."],
+  ["commute","trajet domicile-travail","My ___ takes forty minutes by MRT."],
+  ["running late","en retard","Sorry, I'm ___ because of the rain."],
+  ["get stuck","rester coincé","We always ___ near the roundabout at 6 pm."]],
+  role:[
+   {t:"Course Grab vers le bureau",s:"Un passager pressé, un chauffeur qui connaît la ville. Il pleut, la route est bouchée.",a:["Passager",["book a ride","drop me off","running late"]],b:["Chauffeur",["traffic jam","toll road","take a detour"]]},
+   {t:"Raconter son trajet",s:"Deux collègues comparent leur trajet du matin à la machine à café.",a:["Collègue 1",["commute","rush hour","get stuck"]],b:["Collègue 2",["fare","on the way","pick-up point"]]}]},
+ {t:"Manger et faire les courses", en:"Food & shopping", w:[
+  ["spicy","épicé, pimenté","This sambal is really ___; drink some water."],
+  ["mild","peu épicé","Can I have it ___? I can't handle much chili."],
+  ["street food stall","stand de cuisine de rue","The best satay comes from a tiny ___ near our street."],
+  ["haggle","marchander","At the market, it's normal to ___ a little."],
+  ["receipt","ticket de caisse, reçu","Can I get a ___ for my expenses?"],
+  ["split the bill","partager l'addition","Let's ___; it's easier."],
+  ["to go","à emporter","Two iced coffees ___, please."],
+  ["run out of","être à court de","We've ___ rice; can you buy some?"],
+  ["groceries","courses alimentaires","I'll pick up the ___ on my way home."],
+  ["dietary restrictions","restrictions alimentaires","Does anyone have ___ before I book the restaurant?"],
+  ["tip","pourboire","Is it customary to leave a ___ here?"],
+  ["on sale","en promotion","Mangoes are ___ today, three for the price of two."]],
+  role:[
+   {t:"Dîner au warung",s:"Deux amis commandent dans un petit restaurant local. L'un adore le piment, l'autre beaucoup moins.",a:["Ami prudent",["mild","split the bill","tip"]],b:["Ami aventurier",["spicy","street food stall","dietary restrictions"]]},
+   {t:"Au marché",s:"Un client marchande des fruits, le vendeur défend ses prix.",a:["Client",["haggle","on sale","receipt"]],b:["Vendeur",["groceries","run out of","to go"]]}]},
+ {t:"Santé et démarches", en:"Health & admin", w:[
+  ["make an appointment","prendre rendez-vous","I'd like to ___ with a GP this week."],
+  ["prescription","ordonnance","You need a ___ for these antibiotics."],
+  ["over the counter","sans ordonnance","You can buy this cream ___."],
+  ["health insurance","assurance santé","Does your ___ cover dental care?"],
+  ["feel under the weather","ne pas être en forme","I ___ today, so I'll work from home."],
+  ["side effects","effets secondaires","Are there any ___ I should know about?"],
+  ["sore throat","mal de gorge","I have a ___ because of the air conditioning."],
+  ["open a bank account","ouvrir un compte bancaire","You'll need your passport to ___."],
+  ["exchange rate","taux de change","The ___ is better at the bank than at the airport."],
+  ["withdraw cash","retirer de l'argent","I need to ___ for the taxi."],
+  ["fill out a form","remplir un formulaire","Please ___ and sign at the bottom."],
+  ["work permit","permis de travail","The company handles the ___ application."]],
+  role:[
+   {t:"Chez le médecin",s:"Un patient décrit ses symptômes, le médecin pose des questions et propose un traitement.",a:["Patient",["feel under the weather","sore throat","health insurance"]],b:["Médecin",["prescription","side effects","over the counter"]]},
+   {t:"À la banque",s:"Un nouvel arrivant veut ouvrir un compte. L'employé explique la procédure.",a:["Client",["open a bank account","withdraw cash","exchange rate"]],b:["Employé",["fill out a form","work permit","make an appointment"]]}]},
+ {t:"Vie sociale", en:"Small talk & friends", w:[
+  ["catch up","prendre des nouvelles, se raconter","Let's grab a coffee and ___ this weekend."],
+  ["hang out","passer du temps ensemble","We usually ___ at the rooftop bar on Fridays."],
+  ["get along","bien s'entendre","We really ___ with our neighbours."],
+  ["What do you do for a living","Tu fais quoi dans la vie ?","\"___?\" \"I work in logistics.\""],
+  ["make friends","se faire des amis","Joining a running club is a great way to ___."],
+  ["keen on","très intéressé par, fan de","She's ___ learning a bit of Bahasa."],
+  ["small talk","conversation légère, banalités","I'm not great at ___ with strangers."],
+  ["that makes sense","c'est logique, je comprends","Oh, ___. Thanks for explaining."],
+  ["no worries","pas de souci","\"Sorry I'm late!\" \"___, we just arrived.\""],
+  ["invite them over","les inviter chez nous","We should ___ for dinner next week."],
+  ["I didn't catch that","je n'ai pas bien entendu / compris","Sorry, ___. Could you say it again?"],
+  ["call it a night","s'arrêter là pour ce soir","It's almost midnight; let's ___."]],
+  role:[
+   {t:"Soirée d'expats",s:"Deux inconnus se rencontrent à une soirée. La musique est forte.",a:["Nouveau venu",["What do you do for a living","keen on","make friends"]],b:["Habitué",["I didn't catch that","that makes sense","no worries"]]},
+   {t:"Retrouvailles",s:"Deux amis ne se sont pas vus depuis un mois et se racontent tout.",a:["Ami 1",["catch up","get along","invite them over"]],b:["Ami 2",["hang out","small talk","call it a night"]]}]},
+ {t:"Réunions", en:"Meetings", w:[
+  ["set the agenda","fixer l'ordre du jour","Before the call, let's ___ together."],
+  ["follow up","relancer, faire un suivi","I'll ___ with the client on Monday."],
+  ["deadline","date limite, échéance","The ___ for the report is Friday noon."],
+  ["stakeholder","partie prenante","Every ___ should receive the summary."],
+  ["on the same page","sur la même longueur d'onde","Let's make sure we're all ___."],
+  ["touch base","faire un point rapide","Let's ___ next week to see where we are."],
+  ["action items","actions à mener","Can you send the ___ after the meeting?"],
+  ["running behind schedule","en retard sur le planning","The project is ___ because of the holidays."],
+  ["take notes","prendre des notes","Could someone ___ during the meeting?"],
+  ["reschedule","reprogrammer","Can we ___ the meeting to Thursday?"],
+  ["wrap up","conclure, terminer","Let's ___; we're almost out of time."],
+  ["a quick call","un appel rapide","Do you have time for ___ this afternoon?"]],
+  role:[
+   {t:"Réunion de lancement",s:"Une cheffe de projet lance un nouveau projet avec un collègue.",a:["Cheffe de projet",["set the agenda","deadline","action items"]],b:["Collègue",["stakeholder","on the same page","take notes"]]},
+   {t:"Le projet prend du retard",s:"Un manager appelle un partenaire pour annoncer un retard et trouver une solution.",a:["Manager",["running behind schedule","reschedule","a quick call"]],b:["Partenaire",["follow up","touch base","wrap up"]]}]},
+ {t:"Emails et négociation", en:"Emails & negotiation", w:[
+  ["I'm reaching out","je vous contacte","___ about the logistics manager position."],
+  ["Please find attached","veuillez trouver ci-joint","___ the updated quote."],
+  ["look forward to","avoir hâte de, être dans l'attente de","We ___ hearing from you."],
+  ["at your earliest convenience","dès que possible (formel)","Please reply ___."],
+  ["a quote","un devis","Could you send us ___ for 500 units?"],
+  ["counter-offer","contre-proposition","They rejected our price and made a ___."],
+  ["meet halfway","couper la poire en deux","Can we ___ on the delivery cost?"],
+  ["reach an agreement","parvenir à un accord","After two hours, we finally managed to ___."],
+  ["terms and conditions","conditions générales","Please read the ___ before signing."],
+  ["a tight budget","un budget serré","We're working with ___ this year."],
+  ["bottom line","l'essentiel ; prix plancher","What's your ___ on this deal?"],
+  ["sign off on","valider, approuver","My manager needs to ___ the contract."]],
+  role:[
+   {t:"Négocier avec un fournisseur",s:"Un acheteur veut baisser le prix, le fournisseur défend sa marge.",a:["Acheteur",["a quote","a tight budget","meet halfway"]],b:["Fournisseur",["counter-offer","bottom line","terms and conditions"]]},
+   {t:"Écrire un email à deux",s:"Dictez ensemble, phrase par phrase, un email à un futur client. Chacun ajoute ses phrases.",a:["Rédacteur 1",["I'm reaching out","Please find attached","at your earliest convenience"]],b:["Rédacteur 2",["look forward to","reach an agreement","sign off on"]]}]},
+ {t:"Présenter et travailler en équipe", en:"Presenting & teamwork", w:[
+  ["key takeaway","point clé à retenir","The ___ is that sales doubled in Q3."],
+  ["break down","détailler, décomposer","Let me ___ the numbers for you."],
+  ["delegate","déléguer","A good manager knows how to ___."],
+  ["bring up","aborder (un sujet)","I'd like to ___ one more issue before we finish."],
+  ["point out","souligner, faire remarquer","She was right to ___ the risk."],
+  ["raise a concern","exprimer une inquiétude","Can I ___ about the timeline?"],
+  ["take ownership","prendre en charge, être responsable","Who will ___ of this task?"],
+  ["come up with","trouver (une idée)","We need to ___ a better plan."],
+  ["workload","charge de travail","My ___ is crazy this week."],
+  ["give feedback","faire un retour","Could you ___ on my slides?"],
+  ["brainstorm","réfléchir ensemble, faire un brainstorming","Let's ___ some names for the product."],
+  ["in a nutshell","en bref","___, the launch was a success."]],
+  role:[
+   {t:"Présenter des résultats",s:"L'un présente les résultats du trimestre, l'autre joue le directeur exigeant.",a:["Présentateur",["key takeaway","break down","in a nutshell"]],b:["Directeur",["point out","raise a concern","bring up"]]},
+   {t:"Répartir le travail",s:"Deux collègues organisent une semaine très chargée.",a:["Responsable",["delegate","workload","take ownership"]],b:["Collègue",["brainstorm","come up with","give feedback"]]}]}
+];
+const WORDS=[], WMAP={};
+WEEKS.forEach((wk,w)=>wk.w.forEach(([en,fr,ex],i)=>{const o={k:w+"-"+i,w,en,fr,ex};WORDS.push(o);WMAP[o.k]=o;}));
+const STORIES=[
+ "Our first night in Jakarta, the power went out and…",
+ "My boss called me at 6 a.m. with a very strange request…",
+ "We got into the wrong Grab car, and the driver said…",
+ "At the market, a woman offered us a mysterious fruit…",
+ "The landlord knocked on the door with surprising news…",
+ "During my first meeting, I realized I had forgotten…",
+ "It started raining so hard that the whole street…",
+ "Our new neighbours invited us to a party, and…"
+];
+const ACTS={
+ 1:{id:"decouverte",n:"Découverte",d:"Devinez d'abord, puis découvrez les 12 expressions de la semaine et testez-vous tout de suite.",plan:[["Révision",3],["Prétest",3],["Découverte",6],["Rappel",3]]},
+ 2:{id:"taboo",n:"Taboo",d:"Faites deviner les expressions en anglais, sans les dire ni les traduire. Chrono de 90 secondes.",plan:[["Révision",3],["Taboo, 4 manches",8],["Résultats",1]]},
+ 3:{id:"trous",n:"Phrases à trous",d:"Retrouvez l'expression qui complète chaque phrase, puis parlez de votre future vie à Jakarta.",plan:[["Révision",3],["Phrases à trous",6],["À l'oral",4],["Résultats",1]]},
+ 4:{id:"role",n:"Jeux de rôle",d:"Deux scènes de la vraie vie. Chacun a trois expressions à placer naturellement.",plan:[["Révision",3],["Scène 1",5],["Scène 2",5],["Résultats",1]]},
+ 5:{id:"duel",n:"Duel express",d:"Traduisez un maximum d'expressions en 45 secondes. Deux manches chacun, le meilleur total gagne.",plan:[["Révision",3],["Duel, 4 manches",5],["Erreurs à revoir",2],["Résultats",1]]},
+ 6:{id:"histoire",n:"Histoire à deux",d:"Inventez une histoire à tour de rôle. Chaque phrase doit contenir le mot pioché.",plan:[["Révision",3],["Histoire, 10 tours",10],["Résultats",1]]},
+ 7:{id:"bilan",n:"Grand bilan",d:"Toutes les révisions en retard, un quiz qui mélange les semaines, et le récap de la semaine.",plan:[["Grande révision",6],["Quiz mélangé",6],["Récap de la semaine",2]]}
+};
+const DAYS=["","Lundi","Mardi","Mercredi","Jeudi","Vendredi","Samedi","Dimanche"];
+const HARI=["","Senin","Selasa","Rabu","Kamis","Jumat","Sabtu","Minggu"];
+const MONTHS=["janvier","février","mars","avril","mai","juin","juillet","août","septembre","octobre","novembre","décembre"];
+const IV={1:1,2:2,3:4,4:8,5:16};
+const START=new Date(2026,9,26);
+
+/* ---------- dates ---------- */
+function ds(d){return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");}
+function today(){return ds(new Date());}
+function parse(s){const [y,m,d]=s.split("-").map(Number);return new Date(y,m-1,d);}
+function addDays(s,n){const d=parse(s);d.setDate(d.getDate()+n);return ds(d);}
+function dow(s){const g=parse(s).getDay();return g===0?7:g;}
+function weekNum(s){return Math.max(0,Math.floor(Math.round((parse(s)-START)/864e5)/7));}
+function longDate(s){const d=parse(s);return DAYS[dow(s)]+" "+d.getDate()+" "+MONTHS[d.getMonth()];}
+
+/* ---------- state & sync ---------- */
+const CFG=window.JVD_CONFIG||{};
+const sb=(CFG.supabaseUrl&&CFG.supabaseKey&&window.supabase&&window.supabase.createClient)?window.supabase.createClient(CFG.supabaseUrl,CFG.supabaseKey):null;
+let KEY="jvd-local-v2";
+function blankState(){return {names:["Gabriel","Margot"],namesU:0,cards:{},log:{}};}
+function norm(o){o=o||{};const b=blankState();const log={};const src=o.log&&typeof o.log==="object"?o.log:{};
+  for(const d in src){if(Array.isArray(src[d]))log[d]=src[d].filter(e=>e&&typeof e==="object"&&e.id).map(e=>({id:String(e.id),a:String(e.a),s:Array.isArray(e.s)?[+e.s[0]||0,+e.s[1]||0]:[0,0]}));}
+  return {names:Array.isArray(o.names)&&o.names.length===2?o.names.map(String):b.names,namesU:+o.namesU||0,cards:o.cards&&typeof o.cards==="object"?JSON.parse(JSON.stringify(o.cards)):{},log};}
+/* merge two states: newest name edit wins, each card keeps its most recent review, sessions are unioned */
+function merge(a,b){const o=blankState();
+  o.names=(b.namesU||0)>=(a.namesU||0)?b.names:a.names;o.namesU=Math.max(a.namesU||0,b.namesU||0);
+  o.cards=Object.assign({},a.cards);for(const k in b.cards){const x=a.cards[k],y=b.cards[k];if(!x||(+y.u||0)>(+x.u||0))o.cards[k]=y;}
+  new Set(Object.keys(a.log).concat(Object.keys(b.log))).forEach(d=>{const m={};(a.log[d]||[]).concat(b.log[d]||[]).forEach(e=>m[e.id]=e);o.log[d]=Object.values(m);});
+  return o;}
+let S=blankState();
+function loadCache(){try{const raw=localStorage.getItem(KEY);S=raw?norm(JSON.parse(raw)):blankState();}catch(e){S=blankState();}}
+function cache(){try{localStorage.setItem(KEY,JSON.stringify(S));}catch(e){}}
+loadCache();
+let themeOverride=null;
+try{const t=localStorage.getItem("jvd-theme");if(t!==null&&t!=="")themeOverride=+t;}catch(e){}
+let user=null,couple=null,syncOk=true,saveChain=Promise.resolve();
+function syncLabel(){if(!sb)return "Progression enregistrée sur cet appareil";return syncOk?"Progression synchronisée":"Hors ligne : enregistré sur cet appareil, synchro dès le retour du réseau";}
+function showSync(){const el=document.getElementById("sync");if(el)el.textContent=syncLabel();}
+async function fetchRemote(){const {data,error}=await sb.from("couples").select("state").eq("id",couple.id).single();if(error)throw error;return norm(data.state);}
+function save(){
+  cache();
+  if(!sb||!couple)return saveChain;
+  saveChain=saveChain.then(async()=>{
+    try{const remote=await fetchRemote();S=merge(remote,S);cache();
+      const {error}=await sb.from("couples").update({state:JSON.parse(JSON.stringify(S)),updated_at:new Date().toISOString()}).eq("id",couple.id);
+      if(error)throw error;syncOk=true;}
+    catch(e){syncOk=false;}
+    showSync();
+  });
+  return saveChain;
+}
+async function pull(){
+  if(!sb||!couple)return false;
+  const before=JSON.stringify(S);
+  try{const remote=await fetchRemote();const merged=merge(remote,S);const needPush=JSON.stringify(merged)!==JSON.stringify(merge(remote,remote));
+    S=merged;cache();syncOk=true;if(needPush)save();}
+  catch(e){syncOk=false;}
+  showSync();
+  return JSON.stringify(S)!==before;
+}
+function totals(){const t=[0,0];Object.values(S.log).forEach(l=>l.forEach(e=>{t[0]+=e.s[0];t[1]+=e.s[1];}));return t;}
+function dayLog(d){return S.log[d]||[];}
+
+/* ---------- accounts ---------- */
+function shell(inner){$("#app").innerHTML=`<header class="top"><div class="brand">Jakarta <span>Vocab</span> Duo</div></header><section class="today auth">${inner}</section>`;}
+function frErr(e){const m=(e&&(e.message||e.error_description))||String(e||"");
+  if(/invalid login/i.test(m))return "Email ou mot de passe incorrect.";
+  if(/not confirmed/i.test(m))return "Confirme d'abord ton adresse avec le lien reçu par email (regarde aussi les spams).";
+  if(/already registered|already been registered/i.test(m))return "Un compte existe déjà avec cet email. Connecte-toi.";
+  if(/password should be|at least 6/i.test(m))return "Le mot de passe doit faire au moins 6 caractères.";
+  if(/rate limit|too many/i.test(m))return "Trop d'essais d'affilée. Réessaie dans quelques minutes.";
+  if(/code_not_found/.test(m))return "Ce code ne correspond à aucun espace. Vérifie les 6 caractères.";
+  if(/couple_full/.test(m))return "Cet espace a déjà deux membres.";
+  if(/already_in_couple/.test(m))return "Ton compte fait déjà partie d'un espace.";
+  if(/fetch|network/i.test(m))return "Pas de connexion au serveur. Vérifie ton réseau et réessaie.";
+  return "Une erreur est survenue : "+m;}
+let authMode="login";
+function renderAuth(msg,isErr){
+  const login=authMode==="login";
+  shell(`<p class="eyebrow">${login?"Connexion":"Nouveau compte"}</p><h2>${login?"Bon retour":"Bienvenue"}</h2>
+    <p class="desc">Chacun de vous a son propre compte. Votre progression est partagée dans votre espace couple, sur téléphone comme sur ordinateur.</p>
+    <form id="af" class="form" novalidate>
+      <label for="em">Email</label><input type="email" id="em" autocomplete="email" required>
+      <label for="pw">Mot de passe</label><input type="password" id="pw" autocomplete="${login?"current-password":"new-password"}" minlength="6" required>
+      ${msg?`<p class="msg ${isErr?"err":""}" role="status">${esc(msg)}</p>`:""}
+      <button class="btn primary" type="submit" id="ab">${login?"Se connecter":"Créer mon compte"}</button>
+    </form>
+    <div class="row"><button class="btn ghost small" id="swm">${login?"Pas encore de compte ? En créer un":"Déjà un compte ? Se connecter"}</button>${login?`<button class="btn ghost small" id="fg">Mot de passe oublié</button>`:""}</div>`);
+  const em=$("#em");try{em.value=localStorage.getItem("jvd-email")||"";}catch(e){}
+  $("#swm").onclick=()=>{authMode=login?"signup":"login";renderAuth();};
+  if(login)$("#fg").onclick=async()=>{const email=em.value.trim();if(!email)return renderAuth("Écris ton email, puis clique à nouveau sur « Mot de passe oublié ».",true);
+    const {error}=await sb.auth.resetPasswordForEmail(email,{redirectTo:location.origin+location.pathname});
+    renderAuth(error?frErr(error):"Email envoyé. Clique sur le lien reçu pour choisir un nouveau mot de passe.",!!error);};
+  $("#af").onsubmit=async e=>{e.preventDefault();const email=em.value.trim(),password=$("#pw").value;
+    if(!email||password.length<6)return renderAuth("Indique ton email et un mot de passe d'au moins 6 caractères.",true);
+    try{localStorage.setItem("jvd-email",email);}catch(x){}
+    $("#ab").disabled=true;$("#ab").textContent="Un instant…";
+    if(login){const {error}=await sb.auth.signInWithPassword({email,password});if(error)renderAuth(frErr(error),true);}
+    else{const {data,error}=await sb.auth.signUp({email,password,options:{emailRedirectTo:location.origin+location.pathname}});
+      if(error)return renderAuth(frErr(error),true);
+      if(!data.session){authMode="login";renderAuth("Compte créé. Ouvre l'email de confirmation (regarde aussi les spams), puis reviens te connecter ici.");}}
+  };
+}
+function renderNewPassword(msg){
+  shell(`<p class="eyebrow">Mot de passe</p><h2>Choisis un nouveau mot de passe</h2>
+    <form id="npf" class="form"><label for="np">Nouveau mot de passe</label><input type="password" id="np" autocomplete="new-password" minlength="6" required>
+    ${msg?`<p class="msg err">${esc(msg)}</p>`:""}<button class="btn primary" type="submit">Enregistrer</button></form>`);
+  $("#npf").onsubmit=async e=>{e.preventDefault();const {error}=await sb.auth.updateUser({password:$("#np").value});if(error)return renderNewPassword(frErr(error));route();};
+}
+function renderCouple(msg){
+  shell(`<p class="eyebrow">Espace couple</p><h2>Dernière étape</h2>
+    <p class="desc">L'un de vous crée l'espace et reçoit un code. L'autre crée son propre compte, puis rejoint l'espace avec ce code.</p>
+    <div class="cols">
+      <div class="box"><h3>Créer notre espace</h3><p class="hint">À faire une seule fois, par la première personne.</p><button class="btn primary" id="cc">Créer l'espace</button></div>
+      <form class="box form" id="jf"><h3>Rejoindre un espace</h3><label for="jc">Code reçu</label><input type="text" id="jc" maxlength="6" autocomplete="off" autocapitalize="characters" required><button class="btn primary" type="submit">Rejoindre</button></form>
+    </div>
+    ${msg?`<p class="msg err">${esc(msg)}</p>`:""}
+    <div class="row"><span class="hint">Connecté : ${esc(user.email||"")}</span><button class="btn ghost small" id="lo">Se déconnecter</button></div>`);
+  $("#cc").onclick=async()=>{$("#cc").disabled=true;const {error}=await sb.rpc("create_couple");if(error)return renderCouple(frErr(error));route();};
+  $("#jf").onsubmit=async e=>{e.preventDefault();const code=$("#jc").value.trim().toUpperCase();const {error}=await sb.rpc("join_couple",{p_code:code});if(error)return renderCouple(frErr(error));route();};
+  $("#lo").onclick=()=>sb.auth.signOut();
+}
+let routing=0;
+async function route(){
+  const my=++routing;
+  if(!user){couple=null;renderAuth();return;}
+  if(!couple)$("#app").innerHTML=`<p class="loading">Chargement de votre progression…</p>`;
+  const {data,error}=await sb.from("couple_members").select("couple_id, couples(id,code,state)").eq("user_id",user.id).maybeSingle();
+  if(my!==routing)return;
+  if(error){
+    let last=null;try{last=JSON.parse(localStorage.getItem("jvd-last-couple"));}catch(e){}
+    if(last&&last.uid===user.id){couple=last;KEY="jvd-c-"+couple.id;loadCache();syncOk=false;renderHome();return;}
+    $("#app").innerHTML=`<section class="today auth"><h2>Pas de connexion</h2><p class="desc">${esc(frErr(error))}</p><div class="row"><button class="btn primary" id="rt">Réessayer</button></div></section>`;$("#rt").onclick=route;return;
+  }
+  if(!data||!data.couples){renderCouple();return;}
+  couple={id:data.couples.id,code:data.couples.code,uid:user.id};
+  try{localStorage.setItem("jvd-last-couple",JSON.stringify(couple));}catch(e){}
+  KEY="jvd-c-"+couple.id;loadCache();
+  S=merge(norm(data.couples.state),S);cache();syncOk=true;
+  renderHome();
+  save();
+}
+function logout(){try{localStorage.removeItem("jvd-last-couple");}catch(e){}sb.auth.signOut();}
+
+/* ---------- helpers ---------- */
+const $=s=>document.querySelector(s);
+function esc(s){return String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));}
+function shuffle(a){a=a.slice();for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a;}
+function themeIdx(){return themeOverride!==null?themeOverride:weekNum(today())%WEEKS.length;}
+function themeWords(){return WORDS.filter(x=>x.w===themeIdx());}
+function introduced(){return Object.keys(S.cards).map(k=>WMAP[k]).filter(Boolean);}
+function olderWords(){return introduced().filter(x=>x.w!==themeIdx());}
+function pool(){const p=introduced();const t=themeWords();const m={};p.concat(t).forEach(x=>m[x.k]=x);return Object.values(m);}
+function opts(ans,all){return shuffle([ans].concat(shuffle([...new Set(all)].filter(x=>x!==ans)).slice(0,3)));}
+function blank(ex){return esc(ex).replace("___",'<span class="blank" aria-label="blanc"></span>');}
+function hl(w){return esc(w.ex).replace("___","<b>"+esc(w.en)+"</b>");}
+function name(p){return esc(S.names[p]||("Joueur "+(p+1)));}
+function chip(p,txt){return `<span class="chip ${p?"b":"a"}">${txt||("À toi, "+name(p))}</span>`;}
+const canSay=typeof window.speechSynthesis!=="undefined";
+function sayBtn(t,cls){return canSay?`<button class="btn ghost small say ${cls||""}" data-say="${esc(t)}">Écouter</button>`:"";}
+function wireSay(el){el.querySelectorAll("[data-say]").forEach(b=>b.onclick=()=>{try{speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(b.dataset.say);u.lang="en-US";u.rate=.9;speechSynthesis.speak(u);}catch(e){}});}
+function streak(){let d=today();if(!dayLog(d).length)d=addDays(d,-1);let n=0;while(dayLog(d).length){n++;d=addDays(d,-1);}return n;}
+function dueCount(){const t=today();return Object.values(S.cards).filter(c=>c.due<=t).length;}
+
+/* ---------- home ---------- */
+let selDay=dow(today()), editNames=false;
+function renderHome(){
+  const t=today(), act=ACTS[selDay], th=themeIdx(), wk=weekNum(t)+1;
+  const mon=addDays(t,-(dow(t)-1));
+  const selDate=addDays(mon,selDay-1);
+  const doneToday=dayLog(t).some(e=>e.a===act.id);const tot=totals();
+  const learned=introduced().length;
+  const mins=act.plan.reduce((a,b)=>a+b[1],0);
+  const app=$("#app");
+  app.innerHTML=`
+  <header class="top"><div class="brand">Jakarta <span>Vocab</span> Duo</div><div class="sync" id="sync">${syncLabel()}</div></header>
+  ${editNames?`<form class="section" id="nf"><div class="cols"><label class="ctrl">Joueur 1 <input type="text" id="n0" value="${name(0)}" maxlength="20"></label><label class="ctrl">Joueur 2 <input type="text" id="n1" value="${name(1)}" maxlength="20"></label></div><div class="row"><button class="btn primary small" type="submit">Enregistrer</button><button class="btn ghost small" type="button" id="nc">Annuler</button></div></form>`:
+  `<div class="players"><div class="pl a"><span class="nm">${name(0)}</span><span class="pts">${tot[0]} <small>points</small></span></div><div class="pl b"><span class="nm">${name(1)}</span><span class="pts">${tot[1]} <small>points</small></span></div></div>`}
+  <div class="stats"><span>Série : <b>${streak()} j</b></span><span>Expressions vues : <b>${learned}/${WORDS.length}</b></span><span>À réviser aujourd'hui : <b>${dueCount()}</b></span>${editNames?"":`<button class="btn ghost small" id="en">Changer les prénoms</button>`}</div>
+  <section class="today" aria-labelledby="tt">
+    <p class="eyebrow">${selDay===dow(t)?"Aujourd'hui":"Séance choisie"} · ${esc(longDate(selDate))} · ${HARI[selDay]}</p>
+    <h2 id="tt">${act.n}</h2>
+    <p class="desc">${act.d}</p>
+    <ul class="plan">${act.plan.map(p=>`<li>${p[0]} <b>${p[1]} min</b></li>`).join("")}</ul>
+    <p class="theme-line">Thème : <b>${esc(WEEKS[th].t)}</b> (${esc(WEEKS[th].en)}) · ${mins} min environ</p>
+    <div class="row"><button class="btn primary" id="go">${doneToday?"Refaire la séance":"Commencer"}</button>${doneToday?`<span class="hint">Déjà faite aujourd'hui.</span>`:""}</div>
+  </section>
+  <section class="section" aria-label="Semaine">
+    <div class="row" style="justify-content:space-between"><h2>Semaine ${wk} du programme</h2></div>
+    <div class="week">${[1,2,3,4,5,6,7].map(d=>{const dd=addDays(mon,d-1);const done=dayLog(dd).length>0;return `<button class="day ${done?"done":""} ${dd===t?"is-today":""} ${d===selDay?"sel":""}" data-d="${d}" aria-pressed="${d===selDay}"><span class="d">${DAYS[d].slice(0,3)}</span><span class="id">${HARI[d]}</span><span class="ac">${ACTS[d].n}</span><span class="dot" aria-label="${done?"faite":"pas faite"}"></span></button>`;}).join("")}</div>
+    <label class="ctrl">Thème de la semaine
+      <select id="th"><option value="">Automatique (${esc(WEEKS[weekNum(t)%WEEKS.length].t)})</option>${WEEKS.map((w,i)=>`<option value="${i}" ${themeOverride===i?"selected":""}>Semaine ${i+1} · ${esc(w.t)}</option>`).join("")}</select>
+    </label>
+  </section>
+  <section class="section" aria-label="Vocabulaire">
+    <h2>Vocabulaire</h2>
+    ${WEEKS.map((w,i)=>{const ws=WORDS.filter(x=>x.w===i);const seen=ws.filter(x=>S.cards[x.k]).length;return `<details class="wk" ${i===th?"open":""}><summary>${i+1}. ${esc(w.t)} <span>${seen}/12 vues</span></summary><ul class="wl">${ws.map(x=>{const c=S.cards[x.k];const b=c?c.box:0;return `<li><span class="en">${esc(x.en)}</span><span class="fr">${esc(x.fr)}</span><span class="lv" title="${c?"Boîte "+b+" sur 5":"Pas encore vue"}">${[1,2,3,4,5].map(n=>`<i class="${n<=b?"on":""}"></i>`).join("")}</span></li>`;}).join("")}</ul></details>`;}).join("")}
+  </section>
+  <section class="section" aria-label="Méthode">
+    <h2>Pourquoi ça marche</h2>
+    <ul class="method">
+      <li><span class="k">1</span><p><b>Se tester plutôt que relire.</b> Chaque séance vous fait chercher la réponse avant de la voir. Les études sur le vocabulaire montrent que ce rappel actif, répété sur plusieurs jours, retient mieux que la relecture.</p></li>
+      <li><span class="k">2</span><p><b>Des intervalles qui s'allongent.</b> Une expression bien sue revient après 1, 2, 4, 8 puis 16 jours. Une erreur la remet à demain. C'est le système des boîtes de Leitner.</p></li>
+      <li><span class="k">3</span><p><b>Des expressions, pas des mots seuls.</b> On apprend « sign a lease » plutôt que « lease », toujours dans une phrase : les blocs de mots se retiennent mieux et servent directement à l'oral.</p></li>
+      <li><span class="k">4</span><p><b>Deviner avant d'apprendre.</b> Le lundi commence par un prétest. Se tromper d'abord prépare la mémoire à la bonne réponse.</p></li>
+      <li><span class="k">5</span><p><b>Parler à deux.</b> Taboo, jeux de rôle et histoires vous obligent à produire l'anglais, pas seulement à le reconnaître.</p></li>
+    </ul>
+  </section>
+  ${sb&&user&&couple?`<div class="account"><span>Connecté : <span style="color:var(--ink)">${esc(user.email||"")}</span></span><span>Code de votre espace couple : <b>${esc(couple.code)}</b></span><div class="row"><button class="btn ghost small" id="lo">Se déconnecter</button></div></div>`:""}
+  <p class="foot">8 semaines de thèmes, puis le programme recommence avec vos révisions. Bon départ pour Jakarta.</p>`;
+  if($("#lo"))$("#lo").onclick=logout;
+  $("#go").onclick=()=>startSession(act.id);
+  app.querySelectorAll(".day").forEach(b=>b.onclick=()=>{selDay=+b.dataset.d;renderHome();});
+  $("#th").onchange=e=>{themeOverride=e.target.value===""?null:+e.target.value;try{localStorage.setItem("jvd-theme",e.target.value);}catch(x){}renderHome();};
+  if(editNames){$("#nf").onsubmit=e=>{e.preventDefault();S.names=[$("#n0").value.trim()||"Joueur 1",$("#n1").value.trim()||"Joueur 2"];S.namesU=Date.now();editNames=false;save();renderHome();};$("#nc").onclick=()=>{editNames=false;renderHome();};}
+  else $("#en").onclick=()=>{editNames=true;renderHome();};
+}
+
+/* ---------- session engine ---------- */
+let sess=null;
+function point(p){sess.scores[p]++;}
+function stopTimers(){if(sess){sess.timers.forEach(clearInterval);sess.timers=[];}}
+function startSession(id){
+  sess={id,step:0,scores:[0,0],turn:Math.random()<.5?0:1,start:Date.now(),timers:[],updates:{},missed:[],clock:null};
+  sess.steps=buildSteps(id);
+  renderSession();
+  sess.clock=setInterval(tickClock,1000);
+}
+function tickClock(){const el=$("#clk");if(!el||!sess)return;const s=Math.floor((Date.now()-sess.start)/1000);el.textContent=Math.floor(s/60)+":"+String(s%60).padStart(2,"0")+" / 15:00";el.classList.toggle("over",s>900);}
+function renderSession(){
+  stopTimers();
+  const st=sess.steps[sess.step];
+  $("#app").innerHTML=`<div class="sbar"><div class="shead"><span class="eyebrow">${esc(ACTS[Object.keys(ACTS).find(k=>ACTS[k].id===sess.id)].n)} · ${esc(st.title)}</span><span class="clock" id="clk"></span></div>
+    <div class="steps">${sess.steps.map((s,i)=>`<i class="${i<sess.step?"on":i===sess.step?"cur":""}"></i>`).join("")}</div>
+    <div class="row" style="justify-content:space-between"><div class="row">${chip(0,name(0)+" · "+sess.scores[0])}${chip(1,name(1)+" · "+sess.scores[1])}</div><button class="btn ghost small" id="quit">Quitter</button></div>
+    <div id="qc"></div></div>
+  <div class="stage" id="stage"></div>`;
+  tickClock();
+  $("#quit").onclick=()=>{$("#qc").innerHTML=`<div class="confirm"><p>Quitter la séance ? Vos révisions déjà faites seront gardées, mais la séance ne comptera pas comme terminée.</p><div class="row"><button class="btn primary small" id="qy">Quitter</button><button class="btn ghost small" id="qn">Continuer la séance</button></div></div>`;
+    $("#qy").onclick=()=>finish(false);$("#qn").onclick=()=>{$("#qc").innerHTML="";};};
+  const stage=$("#stage");
+  st.run(stage,()=>{sess.step++;renderSession();});
+  wireSay(stage);
+  window.scrollTo({top:0});
+}
+function refreshScores(){const c=document.querySelectorAll(".sbar .chip");if(c.length===2){c[0].textContent=S.names[0]+" · "+sess.scores[0];c[1].textContent=S.names[1]+" · "+sess.scores[1];}}
+function finish(complete){
+  stopTimers();clearInterval(sess.clock);
+  const now=Date.now();
+  for(const k in sess.updates)S.cards[k]=Object.assign({},sess.updates[k],{u:now});
+  if(complete){
+    const tom=addDays(today(),1);
+    themeWords().forEach(w=>{if(!S.cards[w.k])S.cards[w.k]={box:1,due:tom,u:0};});
+    const t=today();S.log[t]=dayLog(t).concat({id:now.toString(36)+Math.random().toString(36).slice(2,7),a:sess.id,s:sess.scores.slice()});
+  }
+  if(complete||Object.keys(sess.updates).length)save().then(()=>{if(!sess)renderHome();});
+  sess=null;selDay=dow(today());renderHome();window.scrollTo({top:0});
+}
+
+/* generic multiple-choice step */
+function quizStep(title,mins,makeItems,intro,noMiss){
+  return {title,mins,run(el,next){
+    const items=makeItems();let i=0;
+    const show=()=>{
+      if(i>=items.length)return next();
+      const it=items[i],p=sess.turn%2;
+      el.innerHTML=`${intro&&i===0?`<p class="note">${intro}</p>`:""}<div class="qhead">${chip(p)}<span class="count">${i+1}/${items.length}</span></div>
+        <div class="prompt ${it.sentence?"sentence":""}">${it.prompt}</div>${it.sub?`<p class="sub">${it.sub}</p>`:""}
+        <div class="opts">${it.options.map((o,j)=>`<button class="opt" data-j="${j}">${esc(o)}</button>`).join("")}</div><div class="after" hidden></div>`;
+      el.querySelectorAll(".opt").forEach(b=>b.onclick=()=>{
+        const ok=it.options[+b.dataset.j]===it.answer;
+        el.querySelectorAll(".opt").forEach(x=>{x.disabled=true;if(it.options[+x.dataset.j]===it.answer)x.classList.add("right");});
+        if(ok)point(p);else{b.classList.add("wrong");if(!noMiss)sess.missed.push(it.word);}
+        refreshScores();
+        const a=el.querySelector(".after");a.hidden=false;
+        a.innerHTML=`<p class="fb ${ok?"ok":"ko"}">${ok?"Bien joué !":"Pas cette fois."}</p>${it.after||""}<div class="row end">${sayBtn(it.word.en)}<button class="btn primary" id="nx">Suivant</button></div>`;
+        wireSay(a);const nx=a.querySelector("#nx");nx.onclick=()=>{i++;sess.turn++;show();};nx.focus();
+      });
+    };show();
+  }};
+}
+function frToEn(w,all){return {word:w,prompt:esc(w.fr),sub:blank(w.ex),answer:w.en,options:opts(w.en,all),after:`<p class="ex">${hl(w)}</p>`};}
+function gapItem(w,all){return {word:w,sentence:true,prompt:blank(w.ex),sub:"Quelle expression complète la phrase ?",answer:w.en,options:opts(w.en,all),after:`<p class="ex">${hl(w)}</p><p class="tr">${esc(w.fr)}</p>`};}
+
+/* spaced review */
+function reviewStep(max,mins,title){
+  return {title:title||"Révision espacée",mins,run(el,next){
+    const t=today();
+    const due=Object.entries(S.cards).filter(([k,c])=>c.due<=t&&WMAP[k]).sort((a,b)=>a[1].due.localeCompare(b[1].due)||a[1].box-b[1].box).slice(0,max).map(([k])=>WMAP[k]);
+    if(!due.length){
+      el.innerHTML=`<h3>Rien à réviser aujourd'hui</h3><p class="sub">${Object.keys(S.cards).length?"Toutes vos expressions sont à jour. Elles reviendront au bon moment.":"Vos premières révisions arriveront demain, après la séance d'aujourd'hui."}</p><div class="row end"><button class="btn primary" id="nx">Continuer</button></div>`;
+      $("#nx").onclick=next;return;
+    }
+    let i=0;
+    const show=()=>{
+      if(i>=due.length)return next();
+      const w=due[i],p=sess.turn%2,c=S.cards[w.k];
+      el.innerHTML=`${i===0?`<p class="note">Dites l'expression anglaise à voix haute avant de retourner la carte. Soyez honnêtes : une carte ratée revient demain, une carte sue revient plus tard.</p>`:""}
+        <div class="qhead">${chip(p)}<span class="count">${i+1}/${due.length} · boîte ${c.box}</span></div>
+        <div class="prompt">${esc(w.fr)}</div><p class="sub">${blank(w.ex)}</p>
+        <div class="row end"><button class="btn primary" id="rv">Voir la réponse</button></div><div class="after" hidden></div>`;
+      const rv=$("#rv");rv.focus();
+      rv.onclick=()=>{rv.hidden=true;const a=el.querySelector(".after");a.hidden=false;
+        a.innerHTML=`<div class="answer">${esc(w.en)}</div><p class="ex">${hl(w)}</p><div class="row end">${sayBtn(w.en)}<button class="btn ghost" id="ko">Pas encore</button><button class="btn primary" id="ok">Je savais</button></div>`;
+        wireSay(a);
+        const grade=ok=>{const nb=ok?Math.min(5,c.box+1):1;sess.updates[w.k]={box:nb,due:addDays(t,ok?IV[nb]:1)};if(ok)point(p);else sess.missed.push(w);refreshScores();i++;sess.turn++;show();};
+        $("#ok").onclick=()=>grade(true);$("#ko").onclick=()=>grade(false);};
+    };show();
+  }};
+}
+
+function countdown(el,secs,onEnd){
+  const bar=el.querySelector(".tbar i"),num=el.querySelector(".tnum"),end=Date.now()+secs*1000;
+  const tick=()=>{const left=Math.max(0,end-Date.now());num.textContent=Math.ceil(left/1000)+" s";bar.style.width=(left/(secs*1000)*100)+"%";if(left<=0){stopTimers();onEnd();}};
+  tick();sess.timers.push(setInterval(tick,200));
+}
+
+/* Monday: learn list */
+function learnStep(){
+  return {title:"Découverte",mins:6,run(el,next){
+    const ws=themeWords();
+    el.innerHTML=`<p class="note">Lisez chaque exemple à voix haute, à tour de rôle. Pour 3 expressions qui vous parlent, inventez une phrase sur votre future vie à Jakarta.</p>
+      <h3>${esc(WEEKS[themeIdx()].t)} · ${esc(WEEKS[themeIdx()].en)}</h3>
+      <ul class="lcards">${ws.map(w=>`<li class="lc"><span class="en">${esc(w.en)}</span><span class="fr">${esc(w.fr)}</span>${sayBtn(w.ex.replace("___",w.en))}<span class="ex">${hl(w)}</span></li>`).join("")}</ul>
+      <div class="row end"><button class="btn primary" id="nx">On passe au rappel</button></div>`;
+    $("#nx").onclick=next;
+  }};
+}
+
+/* Tuesday: taboo */
+function tabooStep(){
+  return {title:"Taboo",mins:8,run(el,next){
+    const deck=shuffle(themeWords().concat(shuffle(olderWords()).slice(0,8)));let di=0,round=0;const R=4,SECS=90;
+    const intro=()=>{
+      if(round>=R)return next();
+      const d=(sess.turn+round)%2,g=1-d;
+      el.innerHTML=`<p class="eyebrow">Manche ${round+1} sur ${R}</p><h3>${name(d)} fait deviner, ${name(g)} devine</h3>
+        <p>Décris l'expression en anglais. Interdit : la dire, la traduire en français, la mimer. Un point pour ${name(g)} à chaque expression trouvée.</p>
+        <p class="note">${name(g)}, ne regarde pas l'écran. Astuce : « It's what you say when… », « It's the opposite of… », « You do it when… ».</p>
+        <div class="row end"><button class="btn primary" id="gob">Lancer les ${SECS} secondes</button></div>`;
+      $("#gob").onclick=()=>play(d,g);
+    };
+    const play=(d,g)=>{
+      let found=0;
+      el.innerHTML=`<div class="timer"><div class="tbar"><i></i></div><span class="tnum"></span></div><div class="tcard" id="tc"></div><div class="row end"><button class="btn ghost" id="ps">Passer</button><button class="btn primary" id="okb">Trouvé</button></div>`;
+      const card=()=>{const w=deck[di%deck.length];$("#tc").innerHTML=`<div class="big">${esc(w.en)}</div><div class="sub">${esc(w.fr)}</div><p class="ex">${hl(w)}</p>`;};
+      card();
+      $("#okb").onclick=()=>{found++;point(g);refreshScores();di++;card();};
+      $("#ps").onclick=()=>{sess.missed.push(deck[di%deck.length]);di++;card();};
+      countdown(el,SECS,()=>{
+        el.innerHTML=`<h3>Temps écoulé</h3><p class="answer">${found} expression${found>1?"s":""} trouvée${found>1?"s":""}</p><div class="row end"><button class="btn primary" id="nr">${round+1<R?"Manche suivante":"Continuer"}</button></div>`;
+        $("#nr").onclick=()=>{round++;intro();};
+      });
+    };
+    intro();
+  }};
+}
+
+/* Wednesday: speaking prompt */
+function oralStep(){
+  return {title:"À l'oral",mins:4,run(el,next){
+    const ws=shuffle(themeWords()),sets=[ws.slice(0,3),ws.slice(3,6)];const used=[[],[]];
+    el.innerHTML=`<p class="note">Chacun dit une phrase par expression, sur votre future vie à Jakarta. L'autre écoute et coche si l'expression est bien utilisée.</p>
+      <div class="roles">${[0,1].map(p=>`<div class="role ${p?"b":"a"}"><span class="who">${name(p)}</span><div class="tg">${sets[p].map((w,j)=>`<button class="tgt" data-p="${p}" data-j="${j}" aria-pressed="false">${esc(w.en)}<small>${esc(w.fr)}</small></button>`).join("")}</div></div>`).join("")}</div>
+      <div class="row end"><button class="btn primary" id="nx">Terminer</button></div>`;
+    el.querySelectorAll(".tgt").forEach(b=>b.onclick=()=>{const p=+b.dataset.p,j=+b.dataset.j;const on=!used[p][j];used[p][j]=on;b.classList.toggle("used",on);b.setAttribute("aria-pressed",on);sess.scores[p]+=on?1:-1;refreshScores();});
+    $("#nx").onclick=next;
+  }};
+}
+
+/* Thursday: role-play */
+function roleStep(idx){
+  return {title:"Scène "+(idx+1),mins:5,run(el,next){
+    const rp=WEEKS[themeIdx()].role[idx];const pa=(sess.turn+idx)%2,pb=1-pa;
+    const find=en=>WORDS.find(x=>x.en===en)||{en,fr:""};
+    el.innerHTML=`<p class="eyebrow">Jeu de rôle · 4 minutes</p><h3>${esc(rp.t)}</h3><p>${esc(rp.s)}</p>
+      <div class="timer"><div class="tbar"><i></i></div><span class="tnum"></span></div>
+      <div class="roles">${[[rp.a,pa,"a"],[rp.b,pb,"b"]].map(([r,p,c])=>`<div class="role ${p?"b":"a"}"><span class="who">${name(p)}</span><h4>${esc(r[0])}</h4><div class="tg">${r[1].map((en,j)=>{const w=find(en);return `<button class="tgt" data-p="${p}" aria-pressed="false">${esc(w.en)}<small>${esc(w.fr)}</small></button>`;}).join("")}</div></div>`).join("")}</div>
+      <p class="hint">Touchez une expression dès qu'elle est utilisée. Parlez uniquement en anglais.</p>
+      <div class="row end"><button class="btn primary" id="nx">${idx===0?"Scène suivante":"Terminer"}</button></div>`;
+    el.querySelectorAll(".tgt").forEach(b=>b.onclick=()=>{const p=+b.dataset.p;const on=!b.classList.contains("used");b.classList.toggle("used",on);b.setAttribute("aria-pressed",on);sess.scores[p]+=on?1:-1;refreshScores();});
+    countdown(el,240,()=>{el.querySelector(".tnum").textContent="Fin";});
+    $("#nx").onclick=next;
+  }};
+}
+
+/* Friday: duel */
+function duelStep(){
+  return {title:"Duel express",mins:6,run(el,next){
+    const P=pool(),all=P.map(x=>x.en);let round=0;const R=4,SECS=45;const res=[0,0];
+    const intro=()=>{
+      if(round>=R){el.innerHTML=`<h3>Résultat du duel</h3><div class="score2">${[0,1].map(p=>`<div class="pl ${p?"b":"a"}"><span class="nm">${name(p)}</span><span class="pts">${res[p]}</span></div>`).join("")}</div><p class="answer">${res[0]===res[1]?"Égalité !":(res[0]>res[1]?name(0):name(1))+" gagne le duel"}</p><div class="row end"><button class="btn primary" id="nx">Continuer</button></div>`;$("#nx").onclick=next;return;}
+      const p=(sess.turn+round)%2;
+      el.innerHTML=`<p class="eyebrow">Manche ${round+1} sur ${R}</p><h3>Passe le téléphone à ${name(p)}</h3><p>Traduis un maximum d'expressions en ${SECS} secondes. Une erreur ne coûte rien, sauf du temps.</p><div class="row end"><button class="btn primary" id="gob">C'est parti</button></div>`;
+      $("#gob").onclick=()=>play(p);
+    };
+    const play=p=>{
+      let q=shuffle(P),qi=0,lock=false;const myRound=round;
+      el.innerHTML=`<div class="timer"><div class="tbar"><i></i></div><span class="tnum"></span></div><div class="qhead">${chip(p,name(p))}<span class="count" id="dc">0</span></div><div class="prompt" id="dp"></div><div class="opts" id="do"></div>`;
+      const ask=()=>{const w=q[qi%q.length];const o=opts(w.en,all);$("#dp").textContent=w.fr;
+        $("#do").innerHTML=o.map((x,j)=>`<button class="opt" data-j="${j}">${esc(x)}</button>`).join("");lock=false;
+        $("#do").querySelectorAll(".opt").forEach(b=>b.onclick=()=>{if(lock)return;lock=true;const ok=o[+b.dataset.j]===w.en;
+          $("#do").querySelectorAll(".opt").forEach(x=>{if(o[+x.dataset.j]===w.en)x.classList.add("right");});
+          if(ok){res[p]++;point(p);refreshScores();$("#dc").textContent=res[p];}else{b.classList.add("wrong");sess.missed.push(w);}
+          setTimeout(()=>{if(round!==myRound||!document.getElementById("do"))return;qi++;ask();},ok?350:900);});};
+      ask();
+      countdown(el,SECS,()=>{round++;el.innerHTML=`<h3>Stop !</h3><p class="answer">${name(p)} : ${res[p]} point${res[p]>1?"s":""}</p><div class="row end"><button class="btn primary" id="nr">Suite</button></div>`;$("#nr").onclick=intro;});
+    };
+    intro();
+  }};
+}
+function missedStep(){
+  return {title:"Erreurs à revoir",mins:2,run(el,next){
+    const m=uniq(sess.missed);
+    el.innerHTML=m.length?`<h3>Les expressions qui ont résisté</h3><p class="note">Relisez-les à voix haute, chacun votre tour. Elles reviendront dans vos révisions.</p><div class="missed">${m.map(w=>`<div><b>${esc(w.en)}</b>${esc(w.fr)}<p class="ex">${hl(w)}</p></div>`).join("")}</div><div class="row end"><button class="btn primary" id="nx">Continuer</button></div>`
+      :`<h3>Aucune erreur</h3><p class="sub">Duel parfait. Vous pouvez continuer.</p><div class="row end"><button class="btn primary" id="nx">Continuer</button></div>`;
+    $("#nx").onclick=next;
+  }};
+}
+function uniq(a){const m={};a.forEach(w=>{if(w)m[w.k]=w;});return Object.values(m);}
+
+/* Saturday: story */
+function storyStep(){
+  return {title:"Histoire à deux",mins:10,run(el,next){
+    const start=STORIES[Math.floor(Math.random()*STORIES.length)];const P=shuffle(pool());let pi=0,turn=0;const T=10;
+    const show=()=>{
+      if(turn>=T){el.innerHTML=`<h3>Fin de l'histoire</h3><p>Pour finir, racontez-la en entier en 30 secondes chacun, sans regarder l'écran.</p><div class="row end"><button class="btn primary" id="nx">Terminer</button></div>`;$("#nx").onclick=next;return;}
+      const p=(sess.turn+turn)%2,w=P[pi%P.length];let swapped=false;
+      el.innerHTML=`${turn===0?`<p class="note">Début de l'histoire, à lire à voix haute : « ${esc(start)} »</p>`:""}
+        <div class="qhead">${chip(p)}<span class="count">Tour ${turn+1}/${T}</span></div>
+        <p class="sub">Ajoute une ou deux phrases à l'histoire en utilisant :</p>
+        <div class="tcard"><div class="big" id="sw">${esc(w.en)}</div><div class="sub" id="sf">${esc(w.fr)}</div></div>
+        <div class="row end"><button class="btn ghost" id="sk">Autre mot (1 fois)</button><button class="btn ghost" id="no">Raté</button><button class="btn primary" id="ok">Utilisé</button></div>`;
+      $("#sk").onclick=()=>{if(swapped)return;swapped=true;pi++;const x=P[pi%P.length];$("#sw").textContent=x.en;$("#sf").textContent=x.fr;$("#sk").disabled=true;};
+      $("#ok").onclick=()=>{point(p);refreshScores();pi++;turn++;show();};
+      $("#no").onclick=()=>{sess.missed.push(P[pi%P.length]);pi++;turn++;show();};
+    };show();
+  }};
+}
+
+/* Sunday recap */
+function recapStep(){
+  return {title:"Récap",mins:2,run(el,next){
+    const t=today(),mon=addDays(t,-(dow(t)-1));
+    const days=[1,2,3,4,5,6,7].map(d=>{const dd=addDays(mon,d-1);return {d,done:dayLog(dd).length>0||dd===t};});
+    const n=days.filter(x=>x.done).length;
+    el.innerHTML=`<h3>Votre semaine</h3><p class="answer">${n} séance${n>1?"s":""} sur 7</p><p class="hint">Aujourd'hui est compté, puisque vous êtes en train de finir le bilan.</p>
+      <div class="week">${days.map(x=>`<div class="day ${x.done?"done":""}"><span class="d">${DAYS[x.d].slice(0,3)}</span><span class="dot"></span></div>`).join("")}</div>
+      <p>Expressions vues depuis le début : <b>${introduced().length}</b> sur ${WORDS.length}. Thème de la semaine prochaine : <b>${esc(WEEKS[(weekNum(t)+1)%WEEKS.length].t)}</b>.</p>
+      <p class="note">Défi de la semaine prochaine : placez chacun trois expressions de cette semaine dans une vraie conversation (au travail, avec des amis, ou en vous écrivant en anglais).</p>
+      <div class="row end"><button class="btn primary" id="nx">Continuer</button></div>`;
+    $("#nx").onclick=next;
+  }};
+}
+
+function endStep(){
+  return {title:"Fin",mins:0,run(el){
+    const m=uniq(sess.missed),a=sess.scores[0],b=sess.scores[1];
+    el.innerHTML=`<p class="eyebrow">Séance terminée</p><h3>${a===b?"Égalité parfaite":(a>b?name(0):name(1))+" remporte la séance"}</h3>
+      <div class="score2">${[0,1].map(p=>`<div class="pl ${p?"b":"a"}"><span class="nm">${name(p)}</span><span class="pts">+${sess.scores[p]}</span></div>`).join("")}</div>
+      ${m.length?`<p class="sub">À retravailler : ${m.slice(0,8).map(w=>`<b>${esc(w.en)}</b>`).join(", ")}${m.length>8?"…":""}</p>`:""}
+      ${themeWords().some(w=>!S.cards[w.k])?`<p class="hint">Les expressions du thème « ${esc(WEEKS[themeIdx()].t)} » rejoignent vos révisions à partir de demain.</p>`:""}
+      <div class="row end"><button class="btn primary" id="fin">Enregistrer et terminer</button></div>`;
+    $("#fin").onclick=()=>finish(true);
+  }};
+}
+
+function buildSteps(id){
+  const all=()=>themeWords().map(x=>x.en);
+  switch(id){
+    case "decouverte":return [reviewStep(10,3),
+      quizStep("Prétest",3,()=>shuffle(themeWords()).map(w=>({word:w,prompt:esc(w.en),sub:"Que veut dire cette expression ? Devinez !",answer:w.fr,options:opts(w.fr,themeWords().map(x=>x.fr)),after:`<p class="ex">${hl(w)}</p>`})),"Devinez le sens avant d'apprendre. Se tromper ici n'a aucune importance : chercher la réponse prépare la mémoire.",true),
+      learnStep(),
+      quizStep("Rappel",3,()=>shuffle(themeWords()).map(w=>frToEn(w,all())),"Maintenant, dans l'autre sens : retrouvez l'expression anglaise."),
+      endStep()];
+    case "taboo":return [reviewStep(10,3),tabooStep(),endStep()];
+    case "trous":return [reviewStep(10,3),quizStep("Phrases à trous",6,()=>shuffle(themeWords()).map(w=>gapItem(w,all())),"Lisez la phrase à voix haute en remplaçant le blanc, puis choisissez."),oralStep(),endStep()];
+    case "role":return [reviewStep(10,3),roleStep(0),roleStep(1),endStep()];
+    case "duel":return [reviewStep(10,3),duelStep(),missedStep(),endStep()];
+    case "histoire":return [reviewStep(10,3),storyStep(),endStep()];
+    case "bilan":return [reviewStep(24,6,"Grande révision"),
+      quizStep("Quiz mélangé",6,()=>{const P=pool(),en=P.map(x=>x.en);return shuffle(P).slice(0,10).map((w,i)=>i%2?gapItem(w,en):frToEn(w,en));},"Ce quiz mélange toutes les semaines déjà vues : alterner les thèmes aide à mieux distinguer les expressions."),
+      recapStep(),endStep()];
+  }
+}
+
+/* ---------- boot ---------- */
+(function boot(){
+  if(!sb){renderHome();return;}
+  let first=true;
+  sb.auth.onAuthStateChange((ev,session)=>{
+    const u=session&&session.user||null;
+    if(ev==="PASSWORD_RECOVERY"){user=u;setTimeout(()=>renderNewPassword(),0);return;}
+    const changed=(u?u.id:null)!==(user?user.id:null);
+    user=u;
+    if(first||changed){first=false;if(changed)couple=null;setTimeout(route,0);}
+  });
+  const refresh=async()=>{if(document.visibilityState==="visible"&&!sess&&couple){if(await pull()&&!sess&&!editNames)renderHome();}};
+  document.addEventListener("visibilitychange",refresh);
+  window.addEventListener("online",refresh);
+  setInterval(refresh,60000);
+})();
+</script>
+</body>
+</html>
