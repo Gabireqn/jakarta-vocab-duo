@@ -351,13 +351,14 @@ function longDate(s){const d=parse(s);return DAYS[dow(s)]+" "+d.getDate()+" "+MO
 const CFG=window.JVD_CONFIG||{};
 const sb=(CFG.supabaseUrl&&CFG.supabaseKey&&window.supabase&&window.supabase.createClient)?window.supabase.createClient(CFG.supabaseUrl,CFG.supabaseKey):null;
 let KEY="jvd-local-v2";
-function blankState(){return {names:["Gabriel","Margot"],namesU:0,cards:{},log:{}};}
+function blankState(){return {names:["Gabriel","Margot"],namesU:0,members:{},cards:{},log:{}};}
 function norm(o){o=o||{};const b=blankState();const log={};const src=o.log&&typeof o.log==="object"?o.log:{};
   for(const d in src){if(Array.isArray(src[d]))log[d]=src[d].filter(e=>e&&typeof e==="object"&&e.id).map(e=>({id:String(e.id),a:String(e.a),s:Array.isArray(e.s)?[+e.s[0]||0,+e.s[1]||0]:[0,0]}));}
-  return {names:Array.isArray(o.names)&&o.names.length===2?o.names.map(String):b.names,namesU:+o.namesU||0,cards:o.cards&&typeof o.cards==="object"?JSON.parse(JSON.stringify(o.cards)):{},log};}
+  const members={};if(o.members&&typeof o.members==="object")for(const k in o.members){const v=+o.members[k];if(v===0||v===1)members[k]=v;}
+  return {names:Array.isArray(o.names)&&o.names.length===2?o.names.map(String):b.names,namesU:+o.namesU||0,members,cards:o.cards&&typeof o.cards==="object"?JSON.parse(JSON.stringify(o.cards)):{},log};}
 /* merge two states: newest name edit wins, each card keeps its most recent review, sessions are unioned */
 function merge(a,b){const o=blankState();
-  o.names=(b.namesU||0)>=(a.namesU||0)?b.names:a.names;o.namesU=Math.max(a.namesU||0,b.namesU||0);
+  o.names=(b.namesU||0)>=(a.namesU||0)?b.names:a.names;o.members=Object.assign({},b.members,a.members);o.namesU=Math.max(a.namesU||0,b.namesU||0);
   o.cards=Object.assign({},a.cards);for(const k in b.cards){const x=a.cards[k],y=b.cards[k];if(!x||(+y.u||0)>(+x.u||0))o.cards[k]=y;}
   new Set(Object.keys(a.log).concat(Object.keys(b.log))).forEach(d=>{const m={};(a.log[d]||[]).concat(b.log[d]||[]).forEach(e=>m[e.id]=e);o.log[d]=Object.values(m);});
   return o;}
@@ -392,6 +393,9 @@ async function pull(){
   showSync();
   return JSON.stringify(S)!==before;
 }
+function mySlot(){return (sb&&user&&S.members[user.id]!==undefined)?S.members[user.id]:null;}
+function who(x){return sess.solo!==null?sess.solo:((x%2)+2)%2;}
+function slots(){return sess.solo!==null?[sess.solo]:[0,1];}
 function totals(){const t=[0,0];Object.values(S.log).forEach(l=>l.forEach(e=>{t[0]+=e.s[0];t[1]+=e.s[1];}));return t;}
 function dayLog(d){return S.log[d]||[];}
 
@@ -470,7 +474,9 @@ async function route(){
   couple={id:data.couples.id,code:data.couples.code,uid:user.id};
   try{localStorage.setItem("jvd-last-couple",JSON.stringify(couple));}catch(e){}
   KEY="jvd-c-"+couple.id;loadCache();
-  S=merge(norm(data.couples.state),S);cache();syncOk=true;
+  S=merge(norm(data.couples.state),S);
+  if(S.members[user.id]===undefined){const taken=Object.values(S.members);S.members[user.id]=taken.includes(0)?1:0;}
+  cache();syncOk=true;
   renderHome();
   save();
 }
@@ -517,7 +523,9 @@ function renderHome(){
     <p class="desc">${act.d}</p>
     <ul class="plan">${act.plan.map(p=>`<li>${p[0]} <b>${p[1]} min</b></li>`).join("")}</ul>
     <p class="theme-line">Thème : <b>${esc(WEEKS[th].t)}</b> (${esc(WEEKS[th].en)}) · ${mins} min environ</p>
-    <div class="row"><button class="btn primary" id="go">${doneToday?"Refaire la séance":"Commencer"}</button>${doneToday?`<span class="hint">Déjà faite aujourd'hui.</span>`:""}</div>
+    <div class="row"><button class="btn primary" id="go">${doneToday?"Refaire à deux":"Commencer à deux"}</button>${(mySlot()!==null?[mySlot()]:[0,1]).map(p=>`<button class="btn ghost solo" data-p="${p}">Seul${p===1?"e":""} : ${name(p)}</button>`).join("")}</div>
+    ${doneToday?`<p class="hint">Déjà faite aujourd'hui.</p>`:""}
+    <p class="hint">À deux, vous jouez sur le même écran et les points sont partagés. Seul${mySlot()===1?"e":""}, seuls tes points comptent.</p>
   </section>
   <section class="section" aria-label="Semaine">
     <div class="row" style="justify-content:space-between"><h2>Semaine ${wk} du programme</h2></div>
@@ -543,7 +551,8 @@ function renderHome(){
   ${sb&&user&&couple?`<div class="account"><span>Connecté : <span style="color:var(--ink)">${esc(user.email||"")}</span></span><span>Code de votre espace couple : <b>${esc(couple.code)}</b></span><div class="row"><button class="btn ghost small" id="lo">Se déconnecter</button></div></div>`:""}
   <p class="foot">8 semaines de thèmes, puis le programme recommence avec vos révisions. Bon départ pour Jakarta.</p>`;
   if($("#lo"))$("#lo").onclick=logout;
-  $("#go").onclick=()=>startSession(act.id);
+  $("#go").onclick=()=>startSession(act.id,null);
+  app.querySelectorAll(".solo").forEach(b=>b.onclick=()=>startSession(act.id,+b.dataset.p));
   app.querySelectorAll(".day").forEach(b=>b.onclick=()=>{selDay=+b.dataset.d;renderHome();});
   $("#th").onchange=e=>{themeOverride=e.target.value===""?null:+e.target.value;try{localStorage.setItem("jvd-theme",e.target.value);}catch(x){}renderHome();};
   if(editNames){$("#nf").onsubmit=e=>{e.preventDefault();S.names=[$("#n0").value.trim()||"Joueur 1",$("#n1").value.trim()||"Joueur 2"];S.namesU=Date.now();editNames=false;save();renderHome();};$("#nc").onclick=()=>{editNames=false;renderHome();};}
@@ -554,8 +563,8 @@ function renderHome(){
 let sess=null;
 function point(p){sess.scores[p]++;}
 function stopTimers(){if(sess){sess.timers.forEach(clearInterval);sess.timers=[];}}
-function startSession(id){
-  sess={id,step:0,scores:[0,0],turn:Math.random()<.5?0:1,start:Date.now(),timers:[],updates:{},missed:[],clock:null};
+function startSession(id,solo){
+  sess={id,solo:(solo===0||solo===1)?solo:null,step:0,scores:[0,0],turn:Math.random()<.5?0:1,start:Date.now(),timers:[],updates:{},missed:[],clock:null};
   sess.steps=buildSteps(id);
   renderSession();
   sess.clock=setInterval(tickClock,1000);
@@ -566,7 +575,7 @@ function renderSession(){
   const st=sess.steps[sess.step];
   $("#app").innerHTML=`<div class="sbar"><div class="shead"><span class="eyebrow">${esc(ACTS[Object.keys(ACTS).find(k=>ACTS[k].id===sess.id)].n)} · ${esc(st.title)}</span><span class="clock" id="clk"></span></div>
     <div class="steps">${sess.steps.map((s,i)=>`<i class="${i<sess.step?"on":i===sess.step?"cur":""}"></i>`).join("")}</div>
-    <div class="row" style="justify-content:space-between"><div class="row">${chip(0,name(0)+" · "+sess.scores[0])}${chip(1,name(1)+" · "+sess.scores[1])}</div><button class="btn ghost small" id="quit">Quitter</button></div>
+    <div class="row" style="justify-content:space-between"><div class="row">${slots().map(p=>chip(p,name(p)+" · "+sess.scores[p])).join("")}</div><button class="btn ghost small" id="quit">Quitter</button></div>
     <div id="qc"></div></div>
   <div class="stage" id="stage"></div>`;
   tickClock();
@@ -577,7 +586,7 @@ function renderSession(){
   wireSay(stage);
   window.scrollTo({top:0});
 }
-function refreshScores(){const c=document.querySelectorAll(".sbar .chip");if(c.length===2){c[0].textContent=S.names[0]+" · "+sess.scores[0];c[1].textContent=S.names[1]+" · "+sess.scores[1];}}
+function refreshScores(){const c=document.querySelectorAll(".sbar .chip");slots().forEach((p,i)=>{if(c[i])c[i].textContent=S.names[p]+" · "+sess.scores[p];});}
 function finish(complete){
   stopTimers();clearInterval(sess.clock);
   const now=Date.now();
@@ -597,7 +606,7 @@ function quizStep(title,mins,makeItems,intro,noMiss){
     const items=makeItems();let i=0;
     const show=()=>{
       if(i>=items.length)return next();
-      const it=items[i],p=sess.turn%2;
+      const it=items[i],p=who(sess.turn);
       el.innerHTML=`${intro&&i===0?`<p class="note">${intro}</p>`:""}<div class="qhead">${chip(p)}<span class="count">${i+1}/${items.length}</span></div>
         <div class="prompt ${it.sentence?"sentence":""}">${it.prompt}</div>${it.sub?`<p class="sub">${it.sub}</p>`:""}
         <div class="opts">${it.options.map((o,j)=>`<button class="opt" data-j="${j}">${esc(o)}</button>`).join("")}</div><div class="after" hidden></div>`;
@@ -628,7 +637,7 @@ function reviewStep(max,mins,title){
     let i=0;
     const show=()=>{
       if(i>=due.length)return next();
-      const w=due[i],p=sess.turn%2,c=S.cards[w.k];
+      const w=due[i],p=who(sess.turn),c=S.cards[w.k];
       el.innerHTML=`${i===0?`<p class="note">Dites l'expression anglaise à voix haute avant de retourner la carte. Soyez honnêtes : une carte ratée revient demain, une carte sue revient plus tard.</p>`:""}
         <div class="qhead">${chip(p)}<span class="count">${i+1}/${due.length} · boîte ${c.box}</span></div>
         <div class="prompt">${esc(w.fr)}</div><p class="sub">${blank(w.ex)}</p>
@@ -664,10 +673,14 @@ function learnStep(){
 /* Tuesday: taboo */
 function tabooStep(){
   return {title:"Taboo",mins:8,run(el,next){
-    const deck=shuffle(themeWords().concat(shuffle(olderWords()).slice(0,8)));let di=0,round=0;const R=4,SECS=90;
+    const deck=shuffle(themeWords().concat(shuffle(olderWords()).slice(0,8)));let di=0,round=0;const SOLO=sess.solo!==null,R=SOLO?2:4,SECS=90;
     const intro=()=>{
       if(round>=R)return next();
-      const d=(sess.turn+round)%2,g=1-d;
+      const d=who(sess.turn+round),g=who(sess.turn+round+1);
+      if(SOLO){el.innerHTML=`<p class="eyebrow">Manche ${round+1} sur ${R}</p><h3>Explique à voix haute, ${name(d)}</h3>
+        <p>Décris chaque expression en anglais, à voix haute, comme si quelqu'un devait la deviner. Interdit : la dire ou la traduire. Valide quand ta description tient en deux phrases claires.</p>
+        <p class="note">Astuce : « It's what you say when… », « It's the opposite of… », « You do it when… ».</p>
+        <div class="row end"><button class="btn primary" id="gob">Lancer les ${SECS} secondes</button></div>`;$("#gob").onclick=()=>play(d,d);return;}
       el.innerHTML=`<p class="eyebrow">Manche ${round+1} sur ${R}</p><h3>${name(d)} fait deviner, ${name(g)} devine</h3>
         <p>Décris l'expression en anglais. Interdit : la dire, la traduire en français, la mimer. Un point pour ${name(g)} à chaque expression trouvée.</p>
         <p class="note">${name(g)}, ne regarde pas l'écran. Astuce : « It's what you say when… », « It's the opposite of… », « You do it when… ».</p>
@@ -676,13 +689,13 @@ function tabooStep(){
     };
     const play=(d,g)=>{
       let found=0;
-      el.innerHTML=`<div class="timer"><div class="tbar"><i></i></div><span class="tnum"></span></div><div class="tcard" id="tc"></div><div class="row end"><button class="btn ghost" id="ps">Passer</button><button class="btn primary" id="okb">Trouvé</button></div>`;
+      el.innerHTML=`<div class="timer"><div class="tbar"><i></i></div><span class="tnum"></span></div><div class="tcard" id="tc"></div><div class="row end"><button class="btn ghost" id="ps">Passer</button><button class="btn primary" id="okb">${d===g&&sess.solo!==null?"Expliqué":"Trouvé"}</button></div>`;
       const card=()=>{const w=deck[di%deck.length];$("#tc").innerHTML=`<div class="big">${esc(w.en)}</div><div class="sub">${esc(w.fr)}</div><p class="ex">${hl(w)}</p>`;};
       card();
       $("#okb").onclick=()=>{found++;point(g);refreshScores();di++;card();};
       $("#ps").onclick=()=>{sess.missed.push(deck[di%deck.length]);di++;card();};
       countdown(el,SECS,()=>{
-        el.innerHTML=`<h3>Temps écoulé</h3><p class="answer">${found} expression${found>1?"s":""} trouvée${found>1?"s":""}</p><div class="row end"><button class="btn primary" id="nr">${round+1<R?"Manche suivante":"Continuer"}</button></div>`;
+        el.innerHTML=`<h3>Temps écoulé</h3><p class="answer">${found} expression${found>1?"s":""} ${sess.solo!==null?"expliquée":"trouvée"}${found>1?"s":""}</p><div class="row end"><button class="btn primary" id="nr">${round+1<R?"Manche suivante":"Continuer"}</button></div>`;
         $("#nr").onclick=()=>{round++;intro();};
       });
     };
@@ -693,9 +706,9 @@ function tabooStep(){
 /* Wednesday: speaking prompt */
 function oralStep(){
   return {title:"À l'oral",mins:4,run(el,next){
-    const ws=shuffle(themeWords()),sets=[ws.slice(0,3),ws.slice(3,6)];const used=[[],[]];
-    el.innerHTML=`<p class="note">Chacun dit une phrase par expression, sur votre future vie à Jakarta. L'autre écoute et coche si l'expression est bien utilisée.</p>
-      <div class="roles">${[0,1].map(p=>`<div class="role ${p?"b":"a"}"><span class="who">${name(p)}</span><div class="tg">${sets[p].map((w,j)=>`<button class="tgt" data-p="${p}" data-j="${j}" aria-pressed="false">${esc(w.en)}<small>${esc(w.fr)}</small></button>`).join("")}</div></div>`).join("")}</div>
+    const ws=shuffle(themeWords()),SOLO=sess.solo!==null,sets=SOLO?{[sess.solo]:ws.slice(0,6)}:[ws.slice(0,3),ws.slice(3,6)];const used=[[],[]];
+    el.innerHTML=`<p class="note">${SOLO?"Dis à voix haute une phrase par expression sur ta future vie à Jakarta, puis coche-la.":"Chacun dit une phrase par expression, sur votre future vie à Jakarta. L'autre écoute et coche si l'expression est bien utilisée."}</p>
+      <div class="roles">${slots().map(p=>`<div class="role ${p?"b":"a"}"><span class="who">${name(p)}</span><div class="tg">${sets[p].map((w,j)=>`<button class="tgt" data-p="${p}" data-j="${j}" aria-pressed="false">${esc(w.en)}<small>${esc(w.fr)}</small></button>`).join("")}</div></div>`).join("")}</div>
       <div class="row end"><button class="btn primary" id="nx">Terminer</button></div>`;
     el.querySelectorAll(".tgt").forEach(b=>b.onclick=()=>{const p=+b.dataset.p,j=+b.dataset.j;const on=!used[p][j];used[p][j]=on;b.classList.toggle("used",on);b.setAttribute("aria-pressed",on);sess.scores[p]+=on?1:-1;refreshScores();});
     $("#nx").onclick=next;
@@ -705,12 +718,12 @@ function oralStep(){
 /* Thursday: role-play */
 function roleStep(idx){
   return {title:"Scène "+(idx+1),mins:5,run(el,next){
-    const rp=WEEKS[themeIdx()].role[idx];const pa=(sess.turn+idx)%2,pb=1-pa;
+    const rp=WEEKS[themeIdx()].role[idx];const pa=who(sess.turn+idx),pb=who(sess.turn+idx+1);
     const find=en=>WORDS.find(x=>x.en===en)||{en,fr:""};
     el.innerHTML=`<p class="eyebrow">Jeu de rôle · 4 minutes</p><h3>${esc(rp.t)}</h3><p>${esc(rp.s)}</p>
       <div class="timer"><div class="tbar"><i></i></div><span class="tnum"></span></div>
       <div class="roles">${[[rp.a,pa,"a"],[rp.b,pb,"b"]].map(([r,p,c])=>`<div class="role ${p?"b":"a"}"><span class="who">${name(p)}</span><h4>${esc(r[0])}</h4><div class="tg">${r[1].map((en,j)=>{const w=find(en);return `<button class="tgt" data-p="${p}" aria-pressed="false">${esc(w.en)}<small>${esc(w.fr)}</small></button>`;}).join("")}</div></div>`).join("")}</div>
-      <p class="hint">Touchez une expression dès qu'elle est utilisée. Parlez uniquement en anglais.</p>
+      <p class="hint">${sess.solo!==null?"Joue les deux rôles à voix haute, en changeant de voix. Touche une expression dès que tu l'as utilisée.":"Touchez une expression dès qu'elle est utilisée. Parlez uniquement en anglais."}</p>
       <div class="row end"><button class="btn primary" id="nx">${idx===0?"Scène suivante":"Terminer"}</button></div>`;
     el.querySelectorAll(".tgt").forEach(b=>b.onclick=()=>{const p=+b.dataset.p;const on=!b.classList.contains("used");b.classList.toggle("used",on);b.setAttribute("aria-pressed",on);sess.scores[p]+=on?1:-1;refreshScores();});
     countdown(el,240,()=>{el.querySelector(".tnum").textContent="Fin";});
@@ -721,11 +734,11 @@ function roleStep(idx){
 /* Friday: duel */
 function duelStep(){
   return {title:"Duel express",mins:6,run(el,next){
-    const P=pool(),all=P.map(x=>x.en);let round=0;const R=4,SECS=45;const res=[0,0];
+    const P=pool(),all=P.map(x=>x.en);let round=0;const SOLO=sess.solo!==null,R=SOLO?2:4,SECS=45;const res=[0,0];
     const intro=()=>{
-      if(round>=R){el.innerHTML=`<h3>Résultat du duel</h3><div class="score2">${[0,1].map(p=>`<div class="pl ${p?"b":"a"}"><span class="nm">${name(p)}</span><span class="pts">${res[p]}</span></div>`).join("")}</div><p class="answer">${res[0]===res[1]?"Égalité !":(res[0]>res[1]?name(0):name(1))+" gagne le duel"}</p><div class="row end"><button class="btn primary" id="nx">Continuer</button></div>`;$("#nx").onclick=next;return;}
-      const p=(sess.turn+round)%2;
-      el.innerHTML=`<p class="eyebrow">Manche ${round+1} sur ${R}</p><h3>Passe le téléphone à ${name(p)}</h3><p>Traduis un maximum d'expressions en ${SECS} secondes. Une erreur ne coûte rien, sauf du temps.</p><div class="row end"><button class="btn primary" id="gob">C'est parti</button></div>`;
+      if(round>=R){el.innerHTML=SOLO?`<h3>Résultat</h3><p class="answer">${name(sess.solo)} : ${res[sess.solo]} bonne${res[sess.solo]>1?"s":""} réponse${res[sess.solo]>1?"s":""} en ${R} manches</p><p class="hint">Le prochain duel à deux, essaie de battre ce score.</p><div class="row end"><button class="btn primary" id="nx">Continuer</button></div>`:`<h3>Résultat du duel</h3><div class="score2">${[0,1].map(p=>`<div class="pl ${p?"b":"a"}"><span class="nm">${name(p)}</span><span class="pts">${res[p]}</span></div>`).join("")}</div><p class="answer">${res[0]===res[1]?"Égalité !":(res[0]>res[1]?name(0):name(1))+" gagne le duel"}</p><div class="row end"><button class="btn primary" id="nx">Continuer</button></div>`;$("#nx").onclick=next;return;}
+      const p=who(sess.turn+round);
+      el.innerHTML=`<p class="eyebrow">Manche ${round+1} sur ${R}</p><h3>${SOLO?"À toi, "+name(p):"Passe le téléphone à "+name(p)}</h3><p>Traduis un maximum d'expressions en ${SECS} secondes. Une erreur ne coûte rien, sauf du temps.</p><div class="row end"><button class="btn primary" id="gob">C'est parti</button></div>`;
       $("#gob").onclick=()=>play(p);
     };
     const play=p=>{
@@ -746,8 +759,8 @@ function duelStep(){
 function missedStep(){
   return {title:"Erreurs à revoir",mins:2,run(el,next){
     const m=uniq(sess.missed);
-    el.innerHTML=m.length?`<h3>Les expressions qui ont résisté</h3><p class="note">Relisez-les à voix haute, chacun votre tour. Elles reviendront dans vos révisions.</p><div class="missed">${m.map(w=>`<div><b>${esc(w.en)}</b>${esc(w.fr)}<p class="ex">${hl(w)}</p></div>`).join("")}</div><div class="row end"><button class="btn primary" id="nx">Continuer</button></div>`
-      :`<h3>Aucune erreur</h3><p class="sub">Duel parfait. Vous pouvez continuer.</p><div class="row end"><button class="btn primary" id="nx">Continuer</button></div>`;
+    el.innerHTML=m.length?`<h3>Les expressions qui ont résisté</h3><p class="note">${sess.solo!==null?"Relis-les à voix haute.":"Relisez-les à voix haute, chacun votre tour."} Elles reviendront dans vos révisions.</p><div class="missed">${m.map(w=>`<div><b>${esc(w.en)}</b>${esc(w.fr)}<p class="ex">${hl(w)}</p></div>`).join("")}</div><div class="row end"><button class="btn primary" id="nx">Continuer</button></div>`
+      :`<h3>Aucune erreur</h3><p class="sub">Duel parfait.</p><div class="row end"><button class="btn primary" id="nx">Continuer</button></div>`;
     $("#nx").onclick=next;
   }};
 }
@@ -758,8 +771,8 @@ function storyStep(){
   return {title:"Histoire à deux",mins:10,run(el,next){
     const start=STORIES[Math.floor(Math.random()*STORIES.length)];const P=shuffle(pool());let pi=0,turn=0;const T=10;
     const show=()=>{
-      if(turn>=T){el.innerHTML=`<h3>Fin de l'histoire</h3><p>Pour finir, racontez-la en entier en 30 secondes chacun, sans regarder l'écran.</p><div class="row end"><button class="btn primary" id="nx">Terminer</button></div>`;$("#nx").onclick=next;return;}
-      const p=(sess.turn+turn)%2,w=P[pi%P.length];let swapped=false;
+      if(turn>=T){el.innerHTML=`<h3>Fin de l'histoire</h3><p>${sess.solo!==null?"Pour finir, raconte-la en entier en une minute, sans regarder l'écran.":"Pour finir, racontez-la en entier en 30 secondes chacun, sans regarder l'écran."}</p><div class="row end"><button class="btn primary" id="nx">Terminer</button></div>`;$("#nx").onclick=next;return;}
+      const p=who(sess.turn+turn),w=P[pi%P.length];let swapped=false;
       el.innerHTML=`${turn===0?`<p class="note">Début de l'histoire, à lire à voix haute : « ${esc(start)} »</p>`:""}
         <div class="qhead">${chip(p)}<span class="count">Tour ${turn+1}/${T}</span></div>
         <p class="sub">Ajoute une ou deux phrases à l'histoire en utilisant :</p>
@@ -790,8 +803,8 @@ function recapStep(){
 function endStep(){
   return {title:"Fin",mins:0,run(el){
     const m=uniq(sess.missed),a=sess.scores[0],b=sess.scores[1];
-    el.innerHTML=`<p class="eyebrow">Séance terminée</p><h3>${a===b?"Égalité parfaite":(a>b?name(0):name(1))+" remporte la séance"}</h3>
-      <div class="score2">${[0,1].map(p=>`<div class="pl ${p?"b":"a"}"><span class="nm">${name(p)}</span><span class="pts">+${sess.scores[p]}</span></div>`).join("")}</div>
+    el.innerHTML=`<p class="eyebrow">Séance terminée</p><h3>${sess.solo!==null?"Bravo "+name(sess.solo):a===b?"Égalité parfaite":(a>b?name(0):name(1))+" remporte la séance"}</h3>
+      <div class="score2">${slots().map(p=>`<div class="pl ${p?"b":"a"}"><span class="nm">${name(p)}</span><span class="pts">+${sess.scores[p]}</span></div>`).join("")}</div>
       ${m.length?`<p class="sub">À retravailler : ${m.slice(0,8).map(w=>`<b>${esc(w.en)}</b>`).join(", ")}${m.length>8?"…":""}</p>`:""}
       ${themeWords().some(w=>!S.cards[w.k])?`<p class="hint">Les expressions du thème « ${esc(WEEKS[themeIdx()].t)} » rejoignent vos révisions à partir de demain.</p>`:""}
       <div class="row end"><button class="btn primary" id="fin">Enregistrer et terminer</button></div>`;
