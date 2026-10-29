@@ -366,7 +366,9 @@ function today(){return ds(new Date());}
 function parse(s){const [y,m,d]=s.split("-").map(Number);return new Date(y,m-1,d);}
 function addDays(s,n){const d=parse(s);d.setDate(d.getDate()+n);return ds(d);}
 function dow(s){const g=parse(s).getDay();return g===0?7:g;}
-function weekNum(s){return Math.max(0,Math.floor(Math.round((parse(s)-START)/864e5)/7));}
+/* program start: the Monday of the week it began; started Thursday or later, the first theme also covers the following week */
+function progStart(){return (typeof S!=="undefined"&&S&&S.start)?S.start:{d:ds(START),late:false};}
+function weekNum(s){const st=progStart();return Math.max(0,Math.floor(Math.round((parse(s)-parse(st.d))/864e5)/7)-(st.late?1:0));}
 function longDate(s){const d=parse(s);return DAYS[dow(s)]+" "+d.getDate()+" "+MONTHS[d.getMonth()];}
 
 /* ---------- state & sync ---------- */
@@ -374,7 +376,7 @@ const CFG=window.JVD_CONFIG||{};
 const libMissing=!!(CFG.supabaseUrl&&CFG.supabaseKey&&!(window.supabase&&window.supabase.createClient));
 const sb=(CFG.supabaseUrl&&CFG.supabaseKey&&!libMissing)?window.supabase.createClient(CFG.supabaseUrl,CFG.supabaseKey):null;
 let KEY="jvd-local-v2";
-function blankState(){return {names:["Gabriel","Margot"],namesU:0,members:{},theme:{v:null,u:0},cards:{0:{},1:{}},log:{}};}
+function blankState(){return {names:["Gabriel","Margot"],namesU:0,members:{},epoch:{id:"0",at:0},start:null,theme:{v:null,u:0},cards:{0:{},1:{}},log:{}};}
 function cleanCard(x){return {box:Math.min(5,Math.max(1,+x.box||1)),due:String(x.due||""),u:+x.u||0};}
 /* cards are per player: {0:{wordKey:card}, 1:{...}}. Older flat data belonged to the first player. */
 function normCards(c){const out={0:{},1:{}};if(!c||typeof c!=="object")return out;
@@ -386,9 +388,15 @@ function norm(o){o=o||{};const b=blankState();const log={};const src=o.log&&type
     return {id:String(e.id),a:String(e.a),s:sc,p:pp,m:Array.isArray(e.m)?e.m.filter(k=>WMAP[k]).slice(0,40):[]};});}
   const members={};if(o.members&&typeof o.members==="object")for(const k in o.members){const v=+o.members[k];if(v===0||v===1)members[k]=v;}
   const tv=o.theme&&o.theme.v;const theme={v:(Number.isInteger(tv)&&tv>=0&&tv<WEEKS.length)?tv:null,u:+(o.theme&&o.theme.u)||0};
-  return {names:Array.isArray(o.names)&&o.names.length===2?o.names.map(String):b.names,namesU:+o.namesU||0,members,theme,cards:normCards(o.cards),log};}
+  const epoch=o.epoch&&o.epoch.id?{id:String(o.epoch.id),at:+o.epoch.at||0}:{id:"0",at:0};
+  const start=o.start&&/^\d{4}-\d{2}-\d{2}$/.test(o.start.d||"")?{d:o.start.d,late:!!o.start.late}:null;
+  return {names:Array.isArray(o.names)&&o.names.length===2?o.names.map(String):b.names,namesU:+o.namesU||0,members,epoch,start,theme,cards:normCards(o.cards),log};}
 /* merge two states (a = server, b = this device): newest name edit wins, each card keeps its most recent review, sessions are unioned and the server copy of a session wins */
 function merge(a,b){const o=blankState();
+  /* after a restart, the newest restart wins entirely: older progress on any device is dropped */
+  if(a.epoch.id!==b.epoch.id){const w=(b.epoch.at||0)>(a.epoch.at||0)?b:a;const r=JSON.parse(JSON.stringify(w));
+    r.members=Object.assign({},b.members,a.members);if((b.namesU||0)>(r.namesU||0)){r.names=b.names;r.namesU=b.namesU;}if((a.namesU||0)>(r.namesU||0)){r.names=a.names;r.namesU=a.namesU;}return norm(r);}
+  o.epoch=a.epoch;o.start=a.start||b.start;
   o.names=(b.namesU||0)>=(a.namesU||0)?b.names:a.names;o.members=Object.assign({},b.members,a.members);o.namesU=Math.max(a.namesU||0,b.namesU||0);
   o.theme=(b.theme.u||0)>=(a.theme.u||0)?b.theme:a.theme;
   [0,1].forEach(p=>{const A=a.cards[p]||{},B=b.cards[p]||{};o.cards[p]=Object.assign({},A);for(const k in B){const x=A[k],y=B[k];if(!x||(+y.u||0)>(+x.u||0))o.cards[p][k]=y;}});
@@ -569,7 +577,13 @@ function progressSection(){
 }
 
 /* ---------- home ---------- */
-let selDay=dow(today()), editNames=false;
+let selDay=dow(today()), editNames=false, resetAsk=false;
+function restartProgram(){
+  const t=today(),now=Date.now();
+  const keep={names:S.names,namesU:S.namesU,members:S.members};
+  S=Object.assign(blankState(),keep,{epoch:{id:now.toString(36)+Math.random().toString(36).slice(2,6),at:now},start:{d:addDays(t,-(dow(t)-1)),late:dow(t)>=4},theme:{v:null,u:now}});
+  resetAsk=false;selDay=1;save();renderHome();window.scrollTo({top:0});
+}
 function renderHome(){
   const t=today(), act=ACTS[selDay], th=themeIdx(), wk=weekNum(t)+1;
   const mon=addDays(t,-(dow(t)-1));
@@ -588,6 +602,7 @@ function renderHome(){
     <h2 id="tt">${act.n}</h2>
     <p class="desc">${act.d}</p>
     <ul class="plan">${act.plan.map(p=>`<li>${p[0]} <b>${p[1]} min</b></li>`).join("")}</ul>
+    ${selDay!==1&&themeWords().every(w=>!deck(me!==null?me:0)[w.k])?`<p class="note">Vous n'avez pas encore découvert les expressions de ce thème. Commencez par la séance du lundi. <button class="btn ghost small" id="tomon">Aller à la Découverte</button></p>`:""}
     <p class="theme-line">Thème : <b>${esc(WEEKS[th].t)}</b> (${esc(WEEKS[th].en)}) · ${mins} min environ</p>
     <div class="row"><button class="btn primary" id="go">${doneToday?"Refaire à deux":"Commencer à deux"}</button>${(mySlot()!==null?[mySlot()]:[0,1]).map(p=>`<button class="btn ghost solo" data-p="${p}">Seul${p===1?"e":""} : ${name(p)}</button>`).join("")}</div>
     ${doneToday?`<p class="hint">Déjà faite aujourd'hui.</p>`:""}
@@ -606,6 +621,11 @@ function renderHome(){
     ${WEEKS.map((w,i)=>{const ws=WORDS.filter(x=>x.w===i);const seen=[0,1].map(p=>ws.filter(x=>deck(p)[x.k]).length);return `<details class="wk" ${i===th?"open":""}><summary>${i+1}. ${esc(w.t)} <span>${seen[0]}/12 · ${seen[1]}/12</span></summary><ul class="wl">${ws.map(x=>`<li><span class="en">${esc(x.en)}</span><span class="fr">${esc(x.fr)}</span><span class="lvs">${[0,1].map(p=>{const c=deck(p)[x.k];const b=c?c.box:0;return `<span class="lv" title="${esc(S.names[p])} : ${c?"niveau "+b+" sur 5":"pas encore vue"}">${[1,2,3,4,5].map(n=>`<i class="${n<=b?"on "+(p?"b":""):""}"></i>`).join("")}</span>`;}).join("")}</span></li>`).join("")}</ul></details>`;}).join("")}
   </section>
   ${progressSection()}
+  <section class="section" aria-label="Recommencer">
+    <h2>Recommencer à zéro</h2>
+    <p class="hint">Efface les points, les séries et les révisions de vous deux, et relance le programme à la semaine 1, à partir d'aujourd'hui. Vos comptes, vos prénoms et votre espace couple sont gardés.</p>
+    <div id="rz">${resetAsk?`<div class="confirm"><p><b>Tout effacer pour vous deux ?</b> C'est définitif.</p><div class="row"><button class="btn primary small" id="rzy">Oui, recommencer à zéro</button><button class="btn ghost small" id="rzn">Annuler</button></div></div>`:`<button class="btn ghost small" id="rzb">Recommencer à zéro</button>`}</div>
+  </section>
   <section class="section" aria-label="Méthode">
     <h2>Pourquoi ça marche</h2>
     <ul class="method">
@@ -618,6 +638,10 @@ function renderHome(){
   </section>
   ${sb&&user&&couple?`<div class="account"><span>Connecté : <span style="color:var(--ink)">${esc(user.email||"")}</span></span><span>Code de votre espace couple : <b>${esc(couple.code)}</b></span><div class="row"><button class="btn ghost small" id="lo">Se déconnecter</button></div></div>`:""}
   <p class="foot">8 semaines de thèmes, puis le programme recommence avec vos révisions. Bon départ pour Jakarta.</p>`;
+  if($("#tomon"))$("#tomon").onclick=()=>{selDay=1;renderHome();};
+  if($("#rzb"))$("#rzb").onclick=()=>{resetAsk=true;renderHome();const el=document.getElementById("rz");if(el)el.scrollIntoView({block:"center"});};
+  if($("#rzn"))$("#rzn").onclick=()=>{resetAsk=false;renderHome();};
+  if($("#rzy"))$("#rzy").onclick=restartProgram;
   if(location.hash==="#progres"){const el=document.getElementById("progres");if(el)el.scrollIntoView();}
   if($("#lo"))$("#lo").onclick=logout;
   $("#go").onclick=()=>startSession(act.id,null);

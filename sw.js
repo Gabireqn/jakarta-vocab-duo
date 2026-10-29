@@ -2,7 +2,7 @@
 // Pages of the app: network first, cached copy when offline.
 // Fonts and the Supabase library: cached after the first visit.
 // Supabase API calls are never cached.
-const CACHE = "jvd-v2";
+const CACHE = "jvd-v3";
 const CORE = ["./", "index.html", "config.js", "manifest.webmanifest", "icon.svg", "icon-192.png", "icon-512.png"];
 
 self.addEventListener("install", (e) => {
